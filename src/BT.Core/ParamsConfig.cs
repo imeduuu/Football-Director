@@ -83,7 +83,7 @@ public sealed class ParamsConfig
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$");
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "worldGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -404,6 +404,7 @@ public sealed class ParamsConfig
         public BoardConfidenceDto? BoardConfidence { get; set; }
         public AttributeGenerationDto? AttributeGeneration { get; set; }
         public JsonElement SquadGeneration { get; set; }
+        public JsonElement WorldGeneration { get; set; }
         public ExpectedPointsDto? ExpectedPoints { get; set; }
         public PositionalFamiliarityDto? PositionalFamiliarity { get; set; }
     }

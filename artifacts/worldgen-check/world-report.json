@@ -1,0 +1,288 @@
+{
+  "status": "PASS",
+  "errors": [],
+  "warnings": [],
+  "metadata": {
+    "seed": "42",
+    "generatorVersion": "1.4.0",
+    "paramsVersion": "1.4.0",
+    "paramsSha256": "8f2b038cd41265e197248ca6ae4ac5aa8e7e9a3ef8ea92ec38514126bc04a26f",
+    "clubPoolVersion": "lumenia-clubs-1.0.0",
+    "namePoolVersion": "1.0.0",
+    "clubs": 10,
+    "squadSize": 25
+  },
+  "clubs": [
+    {
+      "clubId": "CLUB-001",
+      "profile": "Favorite",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 70.2,
+      "formation": "4-3-3",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 14604,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-002",
+      "profile": "UpperHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 65.6,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 13862,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-003",
+      "profile": "LowerHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 59.2,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.9285714285714286,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 14122,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-004",
+      "profile": "RelegationCandidate",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 56.6,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 13869,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-005",
+      "profile": "UpperHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 65.6,
+      "formation": "4-3-3",
+      "starterBandCoverage": 0.9090909090909091,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 13888,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-006",
+      "profile": "LowerHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 59.6,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.9285714285714286,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 12445,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-007",
+      "profile": "Favorite",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 70.28,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 12609,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-008",
+      "profile": "UpperHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 65.96,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 14928,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-009",
+      "profile": "LowerHalf",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 60.4,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.8571428571428571,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 14204,
+      "highTalent": 0
+    },
+    {
+      "clubId": "CLUB-010",
+      "profile": "RelegationCandidate",
+      "players": 25,
+      "meanAge": 26,
+      "meanOvr": 56.28,
+      "formation": "4-4-2",
+      "starterBandCoverage": 0.8181818181818182,
+      "benchBandCoverage": 0.9285714285714286,
+      "positions": {
+        "Goalkeeper": 3,
+        "CentreBack": 7,
+        "LeftBack": 1,
+        "RightBack": 1,
+        "DefensiveMidfielder": 1,
+        "CentralMidfielder": 8,
+        "AttackingMidfielder": 0,
+        "LeftWinger": 1,
+        "RightWinger": 1,
+        "Striker": 5
+      },
+      "payroll": 14142,
+      "highTalent": 0
+    }
+  ],
+  "summary": {
+    "players": 250,
+    "highTalent": 0,
+    "concentration": 0,
+    "positions": {
+      "Goalkeeper": 30,
+      "CentreBack": 70,
+      "LeftBack": 10,
+      "RightBack": 10,
+      "DefensiveMidfielder": 10,
+      "CentralMidfielder": 80,
+      "AttackingMidfielder": 0,
+      "LeftWinger": 10,
+      "RightWinger": 10,
+      "Striker": 50
+    },
+    "byDivision": [
+      {
+        "division": 1,
+        "players": 125,
+        "meanOvr": 63.44,
+        "highTalent": 0
+      },
+      {
+        "division": 2,
+        "players": 125,
+        "meanOvr": 62.504,
+        "highTalent": 0
+      }
+    ]
+  }
+}

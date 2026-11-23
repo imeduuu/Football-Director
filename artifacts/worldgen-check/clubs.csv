@@ -1,0 +1,11 @@
+id,name,division,profile,status,country,reputation,primaryColor,secondaryColor,stadiumCapacity,transferBudget,weeklyWageBudget
+"CLUB-001","Montaña","1","Favorite","Active","Lumenia","76","#010023","#020023","28828","42950903","155084"
+"CLUB-002","Sierra","1","UpperHalf","Active","Lumenia","58","#01000E","#02000E","11068","14108361","55228"
+"CLUB-003","Bruma","1","LowerHalf","Active","Lumenia","44","#010024","#020024","44642","6013446","67300"
+"CLUB-004","Naciente","1","RelegationCandidate","Active","Lumenia","22","#010010","#020010","67096","2148460","21435"
+"CLUB-005","Unión del Valle","1","UpperHalf","Active","Lumenia","67","#01001D","#02001D","49171","10411380","59199"
+"CLUB-006","Oasis","2","LowerHalf","Active","Lumenia","47","#01000D","#02000D","38333","9337124","44803"
+"CLUB-007","Inti","2","Favorite","Active","Lumenia","79","#01001E","#02001E","63139","21767084","211419"
+"CLUB-008","Glaciar","2","UpperHalf","Active","Lumenia","65","#01001F","#02001F","78836","19618955","63789"
+"CLUB-009","Puerto","2","LowerHalf","Active","Lumenia","39","#010006","#020006","25973","8381122","73409"
+"CLUB-010","Junco","2","RelegationCandidate","Active","Lumenia","22","#010020","#020020","13465","1186136","37408"

@@ -1,5 +1,23 @@
 {
   "version": "1.4.0",
+  "worldGeneration": {
+    "generatorVersion": "1.4.0",
+    "squadSize": 25,
+    "country": "Lumenia",
+    "nationality": "Lumenia",
+    "clubGeneration": {
+      "stadiumCapacityMinimum": 5000,
+      "stadiumCapacityMaximum": 85000,
+      "profiles": [
+        { "name": "Favorite", "reputationMinimum": 75, "reputationMaximum": 95, "transferBudgetMinimum": 20000000, "transferBudgetMaximum": 50000000, "weeklyWageBudgetMinimum": 100000, "weeklyWageBudgetMaximum": 300000 },
+        { "name": "UpperHalf", "reputationMinimum": 55, "reputationMaximum": 74, "transferBudgetMinimum": 8000000, "transferBudgetMaximum": 20000000, "weeklyWageBudgetMinimum": 50000, "weeklyWageBudgetMaximum": 150000 },
+        { "name": "LowerHalf", "reputationMinimum": 35, "reputationMaximum": 54, "transferBudgetMinimum": 2000000, "transferBudgetMaximum": 10000000, "weeklyWageBudgetMinimum": 25000, "weeklyWageBudgetMaximum": 80000 },
+        { "name": "RelegationCandidate", "reputationMinimum": 15, "reputationMaximum": 34, "transferBudgetMinimum": 500000, "transferBudgetMaximum": 4000000, "weeklyWageBudgetMinimum": 10000, "weeklyWageBudgetMaximum": 40000 }
+      ]
+    },
+    "contracts": { "durationMinimum": 1, "durationMaximum": 5, "weeklyWageMinimum": 100, "weeklyWageMaximum": 1000, "signingBonusMaximum": 50000, "goalBonusMaximum": 5000, "cleanSheetBonusMaximum": 5000 },
+    "concentrationWarningThreshold": 0.2
+  },
   "squadGeneration": {
     "minimumBandCoverage": 0.8,
     "maxAttempts": 40,

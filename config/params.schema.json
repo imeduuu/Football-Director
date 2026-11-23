@@ -4,9 +4,21 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "attributeGeneration", "squadGeneration"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "attributeGeneration", "squadGeneration", "worldGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
+    "worldGeneration": { "type": "object", "additionalProperties": false,
+      "required": ["generatorVersion", "squadSize", "country", "nationality", "clubGeneration", "contracts", "concentrationWarningThreshold"],
+      "properties": {
+        "generatorVersion": { "type": "string", "minLength": 1 },
+        "squadSize": { "type": "integer", "minimum": 11 },
+        "country": { "type": "string", "minLength": 1 },
+        "nationality": { "type": "string", "minLength": 1 },
+        "clubGeneration": { "type": "object" },
+        "contracts": { "type": "object" },
+        "concentrationWarningThreshold": { "type": "number", "minimum": 0 }
+      }
+    },
     "squadGeneration": {
       "type": "object", "additionalProperties": false,
       "required": ["minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles", "compositions"],
