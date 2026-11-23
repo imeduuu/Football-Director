@@ -1182,8 +1182,9 @@ migración antes de cerrar el formato de guardado. \[v1.3·R\] Con las
 nuevas fórmulas se añaden al esquema los campos: cohesión C del equipo,
 familiaridad de rol por jugador (Frol), familiaridad de esquema T
 (tactical_familiarity), relación Rij (player_relationships), parámetros
-de cup_rounds y cup_draws (copa), y seed_mundo con versión del
-generador.
+de cup_rounds y cup_draws (copa), y la tabla `world_generation`.
+
+La tabla `world_generation` guarda una fila por mundo con `seed_world` (texto decimal canónico sin signo, para preservar los 64 bits), `generator_version` (SemVer), `config_hash`, `name_pool_version`, `color_palette_version` y `engine_version`. `generator_version` identifica el algoritmo y congela los datos/parámetros de generación; `engine_version` versiona la simulación y cambia de forma independiente. Una partida ya guardada no se regenera al cambiar el generador: conserva su metadata y mundo; la metadata nueva se escribe solo al crear otro mundo.
 
 ### 14.6 Integridad y seguridad de datos
 
@@ -1623,8 +1624,64 @@ orientativa Favorito de división 68--72 titulares 70--76; suplentes
 titulares 56--62; suplentes 48--58 La creación inicial usa una semilla
 maestra y subsemillas por club/jugador. Guardar la semilla y la versión
 del generador para reproducir cualquier partida y poder migrar la
-población en versiones futuras. \### 21. IA de alineación y decisiones
-tácticas La IA debe priorizar decisiones razonables, no hacer trampa. La
+población en versiones futuras.
+
+#### Decisiones cerradas para SquadGenerator (Vertical Slice y MVP)
+
+El Vertical Slice acepta tamaños de 18 a 22 jugadores y el MVP genera 25. La composición por línea queda fijada así; cada fila suma el tamaño indicado:
+
+| Tamaño | POR | DEF | MED | DEL |
+| ---: | ---: | ---: | ---: | ---: |
+| 18 | 2 | 6 | 6 | 4 |
+| 19 | 2 | 6 | 6 | 5 |
+| 20 | 3 | 6 | 6 | 5 |
+| 21 | 3 | 6 | 7 | 5 |
+| 22 | 3 | 7 | 7 | 5 |
+| 25 (MVP) | 3 | 7 | 8 | 5 |
+
+POR significa porteros, DEF defensas, MED mediocampistas y DEL delanteros. No se admiten otros tamaños en este generador. La cobertura garantiza al menos dos porteros y dos jugadores en cada línea. Para considerar válida una plantilla, debe poder asignar jugadores distintos a todas las posiciones de cualquiera de las dos formaciones del Slice: 4-4-2 (POR, LI, 2×DFC, LD, 2×MC, EI, ED, 2×DC) y 4-3-3 (POR, LI, 2×DFC, LD, MCD, 2×MC, EI, ED, DC). ED/EI pueden cubrir las bandas del mediocampo en 4-4-2. La línea de cada jugador se cuenta por su posición primaria; sus posiciones secundarias pueden cubrir otra línea. Un portero no cubre una posición de campo.
+
+Para cada tamaño, la media de edad inicial debe quedar entre 25 y 27 años, inclusive. El generador asigna edades enteras entre 18 y 34 años y valida la media al final. El objetivo determinista es una media exacta de 26: formar pares de edades equidistantes de 26 y, si el tamaño es impar, asignar 26 al jugador restante. La semilla y la versión del generador determinan la asignación reproducible de edades y roles.
+
+#### 20.4 Perfiles de plantilla y calibración de OVR
+
+La tabla de perfiles de 20.3 se interpreta con estas columnas: el primer intervalo es la media del OVR de toda la plantilla; los intervalos de titulares y suplentes son bandas orientativas de OVR individual, no límites duros. Los titulares son los once jugadores asignados a una formación válida que maximizan la adecuación por OVR en rol; los restantes son suplentes. El generador debe lograr la media de plantilla dentro del intervalo del perfil y situar al menos el 80% de cada grupo dentro de su banda orientativa. Los valores fuera de banda son admisibles y se informan, especialmente para talento excepcional. El OVR siempre se calcula desde atributos y pesos de rol: nunca se asigna ni se recorta directamente.
+
+Los cuatro perfiles son una entrada explícita de ClubGenerator y un dato de la fila del club; no se infieren de una reputación generada aleatoriamente. Para la población de referencia, asignar los perfiles de forma equilibrada y reproducible: 20% favorito, 30% mitad alta, 30% mitad baja y 20% candidato al descenso. El MVP de 40 clubes usa 8, 12, 12 y 8 clubes respectivamente; el Slice de 10 usa 2, 3, 3 y 2. La reputación se genera en [1,100] mediante parámetros por perfil; cambios en esos parámetros cambian la versión del generador.
+
+La media objetivo de cada club se deriva de reputación y división, se limita al intervalo del perfil y se guarda como metadata de generación. La media de atributos continúa condicionada por división, reputación, edad y rol según 20.2 y `config/params.json`. La aceptación de una plantilla verifica la media de OVR de plantilla completa y la fracción de titulares/suplentes dentro de sus bandas. Los intentos, límites de reintento y ajustes de media son parámetros versionados; agotarlos produce un fallo con diagnóstico y no una plantilla silenciosamente fuera de perfil.
+
+#### 20.5 Control global de talento OVR 85+
+
+OVR 85+ se calcula con el OVR de rol ya derivado de atributos. Es un resultado raro de la distribución de toda la población, condicionado por nivel de división, reputación del club, edad y rol. No hay cupo ni límite duro por club, y las bandas orientativas de 20.3 no recortan a los jugadores excepcionales. La distribución y sus pesos viven en parámetros versionados; la selección no puede favorecer a un club ignorando su reputación o división.
+
+El paquete de referencia de 20 clubes debe producir entre 0 y 2 jugadores con OVR 85+ inclusive para la semilla golden de worldgen, registrada como `goldenSeed` en el fixture de prueba worldgen. El validador reporta además el total global y el reparto por club y perfil. La calibración estadística usa múltiples semillas: no se debe convertir el rango de la semilla golden en una cuota aplicada a cada mundo ni redistribuir jugadores excepcionales después de generarlos.
+
+La prueba de concentracion no aplica un cupo por club: compara la distribucion observada con la probabilidad esperada por perfil, reputacion y division. El reporte conserva ambas series y calcula un indicador global de concentracion; el umbral de aviso es configurable. Los casos de la semilla golden comprueban solo el intervalo global 0--2.
+
+#### 20.6 Contrato de ClubGenerator
+
+Cada club inicial contiene ID estable, nombre único dentro del mundo, país, perfil, reputación entera [1,100], estado `Active`, color primario y secundario en hexadecimal RGB, aforo entero y presupuestos de fichajes y salarial semanal enteros no negativos. El aforo respeta el rango de estadio de 9.1 (5.000--85.000). Colores y nombres provienen de pools externos versionados; no se generan nombres o colores por orden de iteración de una colección no ordenada. Los colores de un club deben distinguirse entre sí y se informa cualquier colisión entre clubes.
+
+El Slice usa una región/nacionalidad ficticia única; la extensión a varios países pertenece a datos externos y no cambia el contrato. Cada club recibe como mínimo un `StaffRole.Manager` de relleno determinista con ID y nombre estables. No se inventan ratings, salario ni efectos de staff para el stub. Los presupuestos iniciales se derivan de parámetros del perfil y deben cubrir la masa salarial semanal de la plantilla sin superar el presupuesto salarial; la escala final de economía sigue su calibración pendiente de 9.1 y 17.
+
+#### 20.7 Contrato de WorldGenerator
+
+WorldGenerator recibe `seed_world` de 64 bits sin signo, `generator_version` y el número de clubes. Admite 10 clubes (una división Slice), 20 (dos divisiones de 10 para prueba poblacional) o 40 (dos divisiones MVP de 20). Cada entidad recibe un ID determinista basado en su tipo y ordinal estable. Sus subsemillas derivan de `seed_world`, `generator_version`, ID de entidad y etiqueta de subsistema mediante el hash estable del núcleo; los flujos de club, jugadores, staff, nombres y atributos son independientes. El orden de generación no altera el resultado.
+
+Repetir `seed_world` y `generator_version` reproduce byte a byte el mismo mundo y los mismos CSV. `generator_version` cambia si cambia el algoritmo, la composición, los parámetros de generación, el pool de nombres/colores o cualquier entrada que afecte resultados. El versionado de simulación (`EngineVersion`) es independiente. Los IDs no dependen de RNG; las exportaciones ordenan primero por ID ordinal.
+
+#### 20.8 Validador y herramienta de balance
+
+La herramienta existente `tools/BT.Balance` expone `worldgen --seed <uint64> --clubs <n> --export-csv <directorio>` y `validate --input <directorio> --report <ruta>`. La generación exporta `clubs.csv`, `players.csv`, `staff.csv` y `world-report.json`; CSV usa UTF-8, encabezados fijos, separador coma, números en formato invariante y filas ordenadas por ID. `clubs.csv` contiene id, nombre, división, perfil, estado, país, reputación, colores, aforo y presupuestos; `players.csv` contiene id, club, nombre, nacionalidad, edad, posiciones, rol, atributos, OVR, potencial y términos de contrato; `staff.csv` contiene id, club, nombre y puesto. Cada exportación incluye semilla, versión de generador, versión/hash de parámetros y pools de datos utilizados. Los archivos canónicos usan comillas y escape CSV conforme a RFC 4180, saltos LF y no contienen timestamps ni rutas locales para conservar la reproducibilidad byte a byte.
+
+El bloque `worldGeneration` de `config/params.json` contiene los parametros versionados necesarios: edades minima/maxima/objetivo, tamanos y composicion, distribucion de perfiles, medias y dispersiones de OVR, bandas esperadas por perfil, reputacion y presupuestos iniciales por perfil, probabilidad de cola 85+, limite de reintentos y umbrales de concentracion. La semilla golden pertenece a los fixtures de prueba, no al balance de produccion. El esquema de parametros debe rechazar rangos invertidos, probabilidades invalidas y perfiles incompletos. El validador comprueba IDs duplicados, nombres repetidos cuando el pool tiene alternativas, tamaños y cobertura de plantilla según 20.3, alineación distinta y válida para 4-4-2 y 4-3-3, media de edad, atributos visibles/ocultos [1,99], potencial >= OVR, OVR calculable [1,99], contratos dentro de 8.1 (duración 1--5 años y valores monetarios no negativos), masa salarial dentro del presupuesto, campos de club dentro de sus rangos y el control de OVR 85+ de 20.5. También informa el conteo por posición primaria y secundaria para detectar vacantes sistémicas.
+
+`world-report.json` contiene estado `PASS`/`FAIL`, errores bloqueantes, avisos, metadata de generación y resúmenes por club/perfil: jugadores, edades, OVR medio, bandas de titulares/suplentes, OVR 85+, posiciones, salario y presupuesto. El resumen global incluye histogramas de edad/OVR/posición y distribución de talento por división, reputación y club. El código de salida es 0 si no hay errores bloqueantes, 1 si falla una invariante de mundo y 2 para argumentos, configuración o entrada inválidos. Un aviso estadístico no cambia el código de salida; cada regla dura o umbral estadístico procede del GDD o de parámetros versionados.
+
+### 21. IA de alineación y decisiones tácticas
+
+La IA debe priorizar decisiones razonables, no hacer trampa. La
 dificultad modifica calidad de evaluación, profundidad de planificación
 y capacidad de adaptación; no aumenta atributos, dinero ni reduce
 lesiones del equipo controlado. - Selección de once: puntuar cada
