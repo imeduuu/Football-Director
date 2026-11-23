@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace BT.Core.Domain;
@@ -21,13 +22,26 @@ public sealed class OvrCalculator
     public int Calculate(Player player, Role role, int positionalFamiliarityPercent)
     {
         if (player is null) throw new ArgumentNullException(nameof(player));
+        return CalculateAttributes(player.VisibleAttributes, role, positionalFamiliarityPercent);
+    }
+
+    /// <summary>Calculates OVR from a complete set of base attributes.</summary>
+    public int CalculateAttributes(IReadOnlyDictionary<Attribute, int> attributes, Role role, int positionalFamiliarityPercent)
+    {
+        if (attributes is null) throw new ArgumentNullException(nameof(attributes));
         if (positionalFamiliarityPercent is < 70 or > 100)
             throw new ArgumentOutOfRangeException(nameof(positionalFamiliarityPercent),
                 "Positional familiarity must be between 70 and 100 percent.");
+        if (attributes.Count != Enum.GetValues(typeof(Attribute)).Length)
+            throw new ArgumentException("A complete set of visible attributes is required.", nameof(attributes));
 
         var weightedBase = 0.0;
         foreach (var (attribute, weight) in _profiles[role].Weights.OrderBy(pair => pair.Key))
-            weightedBase += player.VisibleAttributes[attribute] * weight;
+        {
+            if (!attributes.TryGetValue(attribute, out var value) || value is < 1 or > 99)
+                throw new ArgumentException($"Attribute '{attribute}' must have a value in [1,99].", nameof(attributes));
+            weightedBase += value * weight;
+        }
 
         var familiarOvr = weightedBase * positionalFamiliarityPercent / 100.0;
         // OVR is positive (attributes are in [1,99]); adding 0.5 gives
