@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "countries": {
+    "LUM": {
+      "eras": {
+        "classic": [
+          { "name": "Adrián", "weight": 5 }, { "name": "Alonso", "weight": 4 },
+          { "name": "Bastián", "weight": 3 }, { "name": "Bruno", "weight": 3 },
+          { "name": "Damián", "weight": 3 }, { "name": "Elías", "weight": 3 },
+          { "name": "Esteban", "weight": 4 }, { "name": "Fabián", "weight": 3 },
+          { "name": "Gabriel", "weight": 4 }, { "name": "Iñaki", "weight": 2 },
+          { "name": "Julián", "weight": 4 }, { "name": "Leandro", "weight": 3 },
+          { "name": "Matías", "weight": 5 }, { "name": "Nicolás", "weight": 4 },
+          { "name": "Rafael", "weight": 4 }, { "name": "Tomás", "weight": 4 }
+        ],
+        "modern": [
+          { "name": "Adrián", "weight": 3 }, { "name": "Alonso", "weight": 2 },
+          { "name": "Bastián", "weight": 4 }, { "name": "Bruno", "weight": 4 },
+          { "name": "Damián", "weight": 2 }, { "name": "Elías", "weight": 4 },
+          { "name": "Esteban", "weight": 2 }, { "name": "Fabián", "weight": 2 },
+          { "name": "Gabriel", "weight": 3 }, { "name": "Iñaki", "weight": 3 },
+          { "name": "Julián", "weight": 3 }, { "name": "Leandro", "weight": 4 },
+          { "name": "Matías", "weight": 5 }, { "name": "Nicolás", "weight": 4 },
+          { "name": "Rafael", "weight": 2 }, { "name": "Tomás", "weight": 4 }
+        ]
+      },
+      "surnames": [
+        { "name": "Alvar", "weight": 3 }, { "name": "Ardén", "weight": 2 },
+        { "name": "Beltrán", "weight": 4 }, { "name": "Cárden", "weight": 3 },
+        { "name": "Delmar", "weight": 2 }, { "name": "Ferral", "weight": 2 },
+        { "name": "Luján", "weight": 3 }, { "name": "Montal", "weight": 2 },
+        { "name": "Norell", "weight": 2 }, { "name": "Olmedo", "weight": 4 },
+        { "name": "Quiral", "weight": 2 }, { "name": "Rovira", "weight": 3 },
+        { "name": "Serrat", "weight": 3 }, { "name": "Valdés", "weight": 4 },
+        { "name": "Varela", "weight": 4 }, { "name": "Zorán", "weight": 2 }
+      ]
+    }
+  }
+}

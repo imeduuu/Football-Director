@@ -18,5 +18,6 @@
   <ItemGroup>
     <None Include="..\golden\core.hash" Link="golden\core.hash" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\config\roles.json" Link="config\roles.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\names\lumenia.v1.json" Link="data\names\lumenia.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
