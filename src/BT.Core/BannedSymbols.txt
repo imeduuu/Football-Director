@@ -1,4 +1,5 @@
 ; API prohibidas para mantener la simulación determinista.
+T:System.Math;Use BT.Core.Sim.DetMath for deterministic simulation math.
 T:System.Random;Use an injected deterministic random number generator.
 P:System.DateTime.Now;Use an explicit simulation time.
 P:System.DateTime.UtcNow;Use an explicit simulation time.
