@@ -1,0 +1,207 @@
+﻿{
+    "version":  "lumenia-clubs-1.0.0",
+    "names":  [
+                  "Aurora",
+                  "Boreal",
+                  "Cumbre",
+                  "Delta",
+                  "Estrella",
+                  "Faro",
+                  "Glaciar",
+                  "Horizonte",
+                  "Isla",
+                  "Jade",
+                  "Kallpa",
+                  "Laguna",
+                  "Montaña",
+                  "Nébula",
+                  "Oasis",
+                  "Puerto",
+                  "Quebrada",
+                  "Río Claro",
+                  "Sierra",
+                  "Tormenta",
+                  "Unión del Valle",
+                  "Viento Sur",
+                  "Waira",
+                  "Yunque",
+                  "Zafiro",
+                  "Altamar",
+                  "Bruma",
+                  "Cóndor",
+                  "Desierto",
+                  "Encina",
+                  "Fénix",
+                  "Granito",
+                  "Halcón",
+                  "Inti",
+                  "Junco",
+                  "Kutral",
+                  "Litoral",
+                  "Mirador",
+                  "Naciente",
+                  "Ñandú"
+              ],
+    "colorPairs":  [
+                       {
+                           "primary":  "#010000",
+                           "secondary":  "#020000"
+                       },
+                       {
+                           "primary":  "#010001",
+                           "secondary":  "#020001"
+                       },
+                       {
+                           "primary":  "#010002",
+                           "secondary":  "#020002"
+                       },
+                       {
+                           "primary":  "#010003",
+                           "secondary":  "#020003"
+                       },
+                       {
+                           "primary":  "#010004",
+                           "secondary":  "#020004"
+                       },
+                       {
+                           "primary":  "#010005",
+                           "secondary":  "#020005"
+                       },
+                       {
+                           "primary":  "#010006",
+                           "secondary":  "#020006"
+                       },
+                       {
+                           "primary":  "#010007",
+                           "secondary":  "#020007"
+                       },
+                       {
+                           "primary":  "#010008",
+                           "secondary":  "#020008"
+                       },
+                       {
+                           "primary":  "#010009",
+                           "secondary":  "#020009"
+                       },
+                       {
+                           "primary":  "#01000A",
+                           "secondary":  "#02000A"
+                       },
+                       {
+                           "primary":  "#01000B",
+                           "secondary":  "#02000B"
+                       },
+                       {
+                           "primary":  "#01000C",
+                           "secondary":  "#02000C"
+                       },
+                       {
+                           "primary":  "#01000D",
+                           "secondary":  "#02000D"
+                       },
+                       {
+                           "primary":  "#01000E",
+                           "secondary":  "#02000E"
+                       },
+                       {
+                           "primary":  "#01000F",
+                           "secondary":  "#02000F"
+                       },
+                       {
+                           "primary":  "#010010",
+                           "secondary":  "#020010"
+                       },
+                       {
+                           "primary":  "#010011",
+                           "secondary":  "#020011"
+                       },
+                       {
+                           "primary":  "#010012",
+                           "secondary":  "#020012"
+                       },
+                       {
+                           "primary":  "#010013",
+                           "secondary":  "#020013"
+                       },
+                       {
+                           "primary":  "#010014",
+                           "secondary":  "#020014"
+                       },
+                       {
+                           "primary":  "#010015",
+                           "secondary":  "#020015"
+                       },
+                       {
+                           "primary":  "#010016",
+                           "secondary":  "#020016"
+                       },
+                       {
+                           "primary":  "#010017",
+                           "secondary":  "#020017"
+                       },
+                       {
+                           "primary":  "#010018",
+                           "secondary":  "#020018"
+                       },
+                       {
+                           "primary":  "#010019",
+                           "secondary":  "#020019"
+                       },
+                       {
+                           "primary":  "#01001A",
+                           "secondary":  "#02001A"
+                       },
+                       {
+                           "primary":  "#01001B",
+                           "secondary":  "#02001B"
+                       },
+                       {
+                           "primary":  "#01001C",
+                           "secondary":  "#02001C"
+                       },
+                       {
+                           "primary":  "#01001D",
+                           "secondary":  "#02001D"
+                       },
+                       {
+                           "primary":  "#01001E",
+                           "secondary":  "#02001E"
+                       },
+                       {
+                           "primary":  "#01001F",
+                           "secondary":  "#02001F"
+                       },
+                       {
+                           "primary":  "#010020",
+                           "secondary":  "#020020"
+                       },
+                       {
+                           "primary":  "#010021",
+                           "secondary":  "#020021"
+                       },
+                       {
+                           "primary":  "#010022",
+                           "secondary":  "#020022"
+                       },
+                       {
+                           "primary":  "#010023",
+                           "secondary":  "#020023"
+                       },
+                       {
+                           "primary":  "#010024",
+                           "secondary":  "#020024"
+                       },
+                       {
+                           "primary":  "#010025",
+                           "secondary":  "#020025"
+                       },
+                       {
+                           "primary":  "#010026",
+                           "secondary":  "#020026"
+                       },
+                       {
+                           "primary":  "#010027",
+                           "secondary":  "#020027"
+                       }
+                   ]
+}

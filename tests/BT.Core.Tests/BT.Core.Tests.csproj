@@ -22,5 +22,6 @@
     <None Include="..\..\config\params.schema.json" Link="config\params.schema.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\config\formations.json" Link="config\formations.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\data\names\lumenia.v1.json" Link="data\names\lumenia.v1.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\clubs\lumenia.v1.json" Link="data\clubs\lumenia.v1.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
