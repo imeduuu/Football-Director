@@ -1,0 +1,7 @@
+; API prohibidas para mantener la simulación determinista.
+T:System.Random;Use an injected deterministic random number generator.
+P:System.DateTime.Now;Use an explicit simulation time.
+P:System.DateTime.UtcNow;Use an explicit simulation time.
+M:System.Guid.NewGuid;Use a deterministic identifier source.
+M:System.Collections.Generic.Dictionary`2.GetEnumerator;Order dictionary entries explicitly before iteration.
+M:System.Collections.Generic.HashSet`1.GetEnumerator;Order set entries explicitly before iteration.
