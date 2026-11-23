@@ -13,7 +13,11 @@ public sealed class OrderedSet<T> : IReadOnlyList<T>
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         _items = new List<T>(source);
-        _items.Sort(comparer ?? Comparer<T>.Default);
+        comparer ??= Comparer<T>.Default;
+        _items.Sort(comparer);
+        for (var i = 1; i < _items.Count; i++)
+            if (comparer.Compare(_items[i - 1], _items[i]) == 0 && !EqualityComparer<T>.Default.Equals(_items[i - 1], _items[i]))
+                throw new ArgumentException("The comparer must order distinct items deterministically.", nameof(comparer));
         for (var i = _items.Count - 1; i > 0; i--)
             if (EqualityComparer<T>.Default.Equals(_items[i], _items[i - 1])) _items.RemoveAt(i);
     }

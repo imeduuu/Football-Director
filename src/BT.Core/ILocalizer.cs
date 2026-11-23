@@ -66,7 +66,8 @@ public sealed class JsonLocalizer : ILocalizer
         if (template is not string text) throw new KeyNotFoundException($"Plural key '{key}' has no '{category}' or 'other' form.");
         var values = variables is null
             ? new Dictionary<string, object?>()
-            : variables.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            : variables.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         values["count"] = count;
         return Interpolate(text, values);
     }
@@ -98,7 +99,7 @@ public sealed class JsonLocalizer : ILocalizer
     private string Interpolate(string template, IReadOnlyDictionary<string, object?>? variables)
     {
         if (variables is null) return template;
-        foreach (var pair in variables)
+        foreach (var pair in variables.OrderBy(pair => pair.Key, StringComparer.Ordinal))
             template = template.Replace("{" + pair.Key + "}", Convert.ToString(pair.Value, Culture) ?? string.Empty, StringComparison.Ordinal);
         return template;
     }
@@ -134,7 +135,7 @@ public sealed class JsonLocalizer : ILocalizer
     private static Dictionary<string, object?> Merge(Dictionary<string, object?> primary, Dictionary<string, object?> fallback)
     {
         var merged = new Dictionary<string, object?>(fallback, StringComparer.Ordinal);
-        foreach (var pair in primary)
+        foreach (var pair in primary.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
             if (pair.Value is Dictionary<string, object?> primaryObject && fallback.TryGetValue(pair.Key, out var fallbackValue) && fallbackValue is Dictionary<string, object?> fallbackObject)
                 merged[pair.Key] = Merge(primaryObject, fallbackObject);

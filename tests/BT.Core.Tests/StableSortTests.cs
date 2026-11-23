@@ -41,4 +41,22 @@ public class StableSortTests
         Assert.Equal(new[] { "a", "b" }, ordered.Keys);
         Assert.Equal(new[] { 1, 2 }, ordered.Values);
     }
+
+    [Fact]
+    public void OrderedSet_RejectsComparerTiesBetweenDistinctItems()
+    {
+        Assert.Throws<System.ArgumentException>(() => new OrderedSet<string>(new[] { "a", "A" }, System.StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void OrderedDictionary_RejectsComparerTiesBetweenDistinctKeys()
+    {
+        var entries = new[]
+        {
+            new KeyValuePair<string, int>("a", 1),
+            new KeyValuePair<string, int>("A", 2)
+        };
+
+        Assert.Throws<System.ArgumentException>(() => new OrderedDictionary<string, int>(entries, System.StringComparer.OrdinalIgnoreCase));
+    }
 }

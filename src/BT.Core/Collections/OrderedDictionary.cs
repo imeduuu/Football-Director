@@ -16,7 +16,11 @@ public sealed class OrderedDictionary<TKey, TValue> : IReadOnlyDictionary<TKey, 
         _values = new Dictionary<TKey, TValue>();
         foreach (var entry in entries) _values.Add(entry.Key, entry.Value);
         _keys = new List<TKey>(_values.Keys);
-        _keys.Sort(comparer ?? Comparer<TKey>.Default);
+        comparer ??= Comparer<TKey>.Default;
+        _keys.Sort(comparer);
+        for (var i = 1; i < _keys.Count; i++)
+            if (comparer.Compare(_keys[i - 1], _keys[i]) == 0)
+                throw new ArgumentException("The comparer must define a deterministic order for distinct keys.", nameof(comparer));
     }
 
     public int Count => _keys.Count;
