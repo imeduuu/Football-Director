@@ -4,9 +4,35 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
+    "squadGeneration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles"],
+      "properties": {
+        "minimumBandCoverage": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "maxAttempts": { "type": "integer", "minimum": 1 },
+        "reputationMeanShift": { "type": "number", "minimum": 0 },
+        "divisionMeanShift": { "type": "number", "minimum": 0 },
+        "referenceReputation": { "type": "number", "minimum": 1, "maximum": 100 },
+        "referenceDivisionLevel": { "type": "integer", "minimum": 1 },
+        "referenceOvr": { "type": "number", "minimum": 1, "maximum": 99 },
+        "profiles": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "meanMinimum", "meanMaximum", "starterMinimum", "starterMaximum", "benchMinimum", "benchMaximum"],
+            "properties": {
+              "name": { "enum": ["Favorite", "UpperHalf", "LowerHalf", "RelegationCandidate"] },
+              "meanMinimum": { "type": "number", "minimum": 1, "maximum": 99 }, "meanMaximum": { "type": "number", "minimum": 1, "maximum": 99 },
+              "starterMinimum": { "type": "integer", "minimum": 1, "maximum": 99 }, "starterMaximum": { "type": "integer", "minimum": 1, "maximum": 99 },
+              "benchMinimum": { "type": "integer", "minimum": 1, "maximum": 99 }, "benchMaximum": { "type": "integer", "minimum": 1, "maximum": 99 }
+            }
+          }
+        }
+      }
+    },
     "fitness": {
       "type": "object", "additionalProperties": false,
       "required": ["minimum", "maximum", "preseasonTarget"],

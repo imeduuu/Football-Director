@@ -21,7 +21,7 @@ public sealed class ParamsConfig
 
     private ParamsConfig(string version, FitnessParams fitness, MoraleParams morale,
         IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
-        AttributeGenerationParams attributeGeneration)
+        AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration)
     {
         Version = version;
         Fitness = fitness;
@@ -29,6 +29,7 @@ public sealed class ParamsConfig
         AgeRecoveryFactors = ageRecoveryFactors;
         BoardConfidence = boardConfidence;
         AttributeGeneration = attributeGeneration;
+        SquadGeneration = squadGeneration;
     }
 
     public string Version { get; }
@@ -37,6 +38,7 @@ public sealed class ParamsConfig
     public IReadOnlyList<AgeRecoveryFactor> AgeRecoveryFactors { get; }
     public BoardConfidenceParams BoardConfidence { get; }
     public AttributeGenerationParams AttributeGeneration { get; }
+    public SquadGenerationParams SquadGeneration { get; }
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
         new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
@@ -71,11 +73,12 @@ public sealed class ParamsConfig
     {
         if (string.IsNullOrWhiteSpace(json)) throw new ArgumentException("JSON content is required.", nameof(json));
         Dto dto;
+        SquadGenerationParams squadGeneration;
         try
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$" );
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -84,6 +87,11 @@ public sealed class ParamsConfig
             EnsureRequiredProperties(root.GetProperty("boardConfidence"), "minimum", "maximum", "initial",
                 "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum");
             var generation = root.GetProperty("attributeGeneration");
+            var squad = root.GetProperty("squadGeneration");
+            EnsureRequiredProperties(squad, "minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles");
+            foreach (var profile in squad.GetProperty("profiles").EnumerateArray())
+                EnsureRequiredProperties(profile, "name", "meanMinimum", "meanMaximum", "starterMinimum", "starterMaximum", "benchMinimum", "benchMaximum");
+            squadGeneration = ParseSquadGeneration(squad);
             EnsureRequiredProperties(generation, "minimum", "maximum", "standardDeviation", "referenceDivisionLevel", "referenceMean",
                 "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities");
             EnsureRequiredProperties(generation.GetProperty("reputation"), "minimum", "maximum", "neutral", "scale", "maximumShift", "attributeWeights");
@@ -124,7 +132,44 @@ public sealed class ParamsConfig
             new BoardConfidenceParams(dto.BoardConfidence!.Minimum, dto.BoardConfidence.Maximum,
                 dto.BoardConfidence.Initial, dto.BoardConfidence.LeagueWeight, dto.BoardConfidence.CupWeight,
                 dto.BoardConfidence.FriendlyWeight, dto.BoardConfidence.MatchChangeMinimum,
-                dto.BoardConfidence.MatchChangeMaximum), generationParams);
+                dto.BoardConfidence.MatchChangeMaximum), generationParams, squadGeneration);
+    }
+
+    private static SquadGenerationParams ParseSquadGeneration(JsonElement element)
+    {
+        var profiles = new Dictionary<SquadProfile, SquadProfileBands>();
+        foreach (var item in element.GetProperty("profiles").EnumerateArray())
+        {
+            var name = item.GetProperty("name").GetString();
+            var bands = new SquadProfileBands(item.GetProperty("meanMinimum").GetDouble(),
+                item.GetProperty("meanMaximum").GetDouble(), item.GetProperty("starterMinimum").GetInt32(),
+                item.GetProperty("starterMaximum").GetInt32(), item.GetProperty("benchMinimum").GetInt32(),
+                item.GetProperty("benchMaximum").GetInt32());
+            if (!double.IsFinite(bands.MeanMinimum) || !double.IsFinite(bands.MeanMaximum) ||
+                bands.MeanMinimum < 1 || bands.MeanMaximum > 99 || bands.MeanMinimum > bands.MeanMaximum ||
+                bands.StarterMinimum < 1 || bands.StarterMaximum > 99 || bands.StarterMinimum > bands.StarterMaximum ||
+                bands.BenchMinimum < 1 || bands.BenchMaximum > 99 || bands.BenchMinimum > bands.BenchMaximum)
+                throw new InvalidDataException($"Invalid parameter configuration: invalid OVR bands for squad profile '{name}'.");
+            if (!Enum.TryParse(name, false, out SquadProfile profile) || !Enum.IsDefined(typeof(SquadProfile), profile) ||
+                !profiles.TryAdd(profile, bands))
+                throw new InvalidDataException($"Invalid parameter configuration: unknown or duplicate squad profile '{name}'.");
+        }
+        if (profiles.Count != Enum.GetValues(typeof(SquadProfile)).Length)
+            throw new InvalidDataException("Invalid parameter configuration: squadGeneration.profiles must define every profile.");
+        var coverage = element.GetProperty("minimumBandCoverage").GetDouble();
+        var attempts = element.GetProperty("maxAttempts").GetInt32();
+        var reputationShift = element.GetProperty("reputationMeanShift").GetDouble();
+        var divisionShift = element.GetProperty("divisionMeanShift").GetDouble();
+        var referenceReputation = element.GetProperty("referenceReputation").GetDouble();
+        var referenceDivision = element.GetProperty("referenceDivisionLevel").GetInt32();
+        var referenceOvr = element.GetProperty("referenceOvr").GetDouble();
+        if (!double.IsFinite(coverage) || coverage is <= 0 or > 1 || attempts < 1 ||
+            !double.IsFinite(reputationShift) || reputationShift < 0 || !double.IsFinite(divisionShift) || divisionShift < 0 ||
+            !double.IsFinite(referenceReputation) || referenceReputation is < 1 or > 100 || referenceDivision < 1 ||
+            !double.IsFinite(referenceOvr) || referenceOvr is < 1 or > 99)
+            throw new InvalidDataException("Invalid parameter configuration: squad generation tuning values are invalid.");
+        return new SquadGenerationParams(coverage, attempts, reputationShift, divisionShift,
+            referenceReputation, referenceDivision, referenceOvr, profiles);
     }
 
     private static void Validate(Dto dto)
@@ -313,6 +358,7 @@ public sealed class ParamsConfig
         public List<AgeRecoveryDto>? AgeRecoveryFactors { get; set; }
         public BoardConfidenceDto? BoardConfidence { get; set; }
         public AttributeGenerationDto? AttributeGeneration { get; set; }
+        public JsonElement SquadGeneration { get; set; }
     }
 
     private sealed class FitnessDto { public double Minimum { get; set; } public double Maximum { get; set; } public double PreseasonTarget { get; set; } }
@@ -347,6 +393,25 @@ public sealed class ParamsConfig
 }
 
 public enum AttributeFamily { Technical, Mental, Physical }
+public sealed class SquadGenerationParams
+{
+    internal SquadGenerationParams(double minimumBandCoverage, int maxAttempts, double reputationMeanShift,
+        double divisionMeanShift, double referenceReputation, int referenceDivisionLevel, double referenceOvr,
+        IReadOnlyDictionary<SquadProfile, SquadProfileBands> profiles)
+    { MinimumBandCoverage = minimumBandCoverage; MaxAttempts = maxAttempts; ReputationMeanShift = reputationMeanShift; DivisionMeanShift = divisionMeanShift; ReferenceReputation = referenceReputation; ReferenceDivisionLevel = referenceDivisionLevel; ReferenceOvr = referenceOvr; Profiles = new ReadOnlyDictionary<SquadProfile, SquadProfileBands>(new Dictionary<SquadProfile, SquadProfileBands>(profiles)); }
+    public double MinimumBandCoverage { get; } public int MaxAttempts { get; }
+    public double ReputationMeanShift { get; } public double DivisionMeanShift { get; }
+    public double ReferenceReputation { get; } public int ReferenceDivisionLevel { get; } public double ReferenceOvr { get; }
+    public IReadOnlyDictionary<SquadProfile, SquadProfileBands> Profiles { get; }
+}
+public sealed class SquadProfileBands
+{
+    internal SquadProfileBands(double meanMinimum, double meanMaximum, int starterMinimum, int starterMaximum, int benchMinimum, int benchMaximum)
+    { MeanMinimum = meanMinimum; MeanMaximum = meanMaximum; StarterMinimum = starterMinimum; StarterMaximum = starterMaximum; BenchMinimum = benchMinimum; BenchMaximum = benchMaximum; }
+    public double MeanMinimum { get; } public double MeanMaximum { get; }
+    public int StarterMinimum { get; } public int StarterMaximum { get; }
+    public int BenchMinimum { get; } public int BenchMaximum { get; }
+}
 
 public sealed class FitnessParams
 {

@@ -18,13 +18,14 @@ public sealed class AttributeGenerator
     }
 
     public GeneratedAttributes Generate(int divisionLevel, double clubReputation, int age, Role role,
-        ref Pcg32 rng, int positionalFamiliarityPercent = 100)
+        ref Pcg32 rng, int positionalFamiliarityPercent = 100, double meanAdjustment = 0)
     {
         if (divisionLevel < 1) throw new ArgumentOutOfRangeException(nameof(divisionLevel));
         if (!double.IsFinite(clubReputation) || clubReputation < _parameters.Reputation.Minimum ||
             clubReputation > _parameters.Reputation.Maximum)
             throw new ArgumentOutOfRangeException(nameof(clubReputation));
         if (age < 0) throw new ArgumentOutOfRangeException(nameof(age));
+        if (!double.IsFinite(meanAdjustment)) throw new ArgumentOutOfRangeException(nameof(meanAdjustment));
 
         var affinity = FindAffinity(role);
         var values = new Dictionary<Attribute, int>(_parameters.Attributes.Count);
@@ -37,7 +38,8 @@ public sealed class AttributeGenerator
         {
             var attribute = _parameters.Attributes[i];
             var repWeight = _parameters.Reputation.AttributeWeights[attribute];
-            var mean = baseMean + reputationDelta * repWeight + affinity.Values[i] * _parameters.PositionScale + AgeAdjustment(age, ParamsConfig.AttributeFamilies[attribute]);
+            var mean = baseMean + reputationDelta * repWeight + affinity.Values[i] * _parameters.PositionScale +
+                AgeAdjustment(age, ParamsConfig.AttributeFamilies[attribute]) + meanAdjustment;
             var sample = RandomDistributions.TruncatedNormal(ref rng, mean, _parameters.StandardDeviation,
                 _parameters.Minimum, _parameters.Maximum);
             values.Add(attribute, Clamp((int)(sample + 0.5), _parameters.Minimum, _parameters.Maximum));

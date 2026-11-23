@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BT.Core;
@@ -25,7 +26,7 @@ public sealed class SquadGeneratorTests
     public void GeneratesConfiguredCompositionAgeAndFormationCoverage(int size, int goalkeepers,
         int defenders, int midfielders, int forwards)
     {
-        var squad = CreateGenerator().Generate(size, "club-1", 1, 50.5, "Lumenia", 1234);
+        var squad = CreateGenerator().Generate(size, "club-1", 1, 50.5, "Lumenia", SquadProfile.LowerHalf, 1234);
         var primary = squad.GroupBy(x => x.Positions[0]).ToDictionary(x => x.Key, x => x.Count());
         int Count(Position position) => primary.TryGetValue(position, out var count) ? count : 0;
 
@@ -53,8 +54,8 @@ public sealed class SquadGeneratorTests
     public void SameSeedProducesTheSameSquad()
     {
         var generator = CreateGenerator();
-        var first = generator.Generate(25, "club-1", 1, 50.5, "Lumenia", 9182, 7);
-        var second = generator.Generate(25, "club-1", 1, 50.5, "Lumenia", 9182, 7);
+        var first = generator.Generate(25, "club-1", 1, 50.5, "Lumenia", SquadProfile.LowerHalf, 9182, 7);
+        var second = generator.Generate(25, "club-1", 1, 50.5, "Lumenia", SquadProfile.LowerHalf, 9182, 7);
 
         Assert.Equal(first.Count, second.Count);
         for (var i = 0; i < first.Count; i++)
@@ -68,14 +69,52 @@ public sealed class SquadGeneratorTests
     }
 
     [Theory]
+    [InlineData(SquadProfile.Favorite)]
+    [InlineData(SquadProfile.UpperHalf)]
+    [InlineData(SquadProfile.LowerHalf)]
+    [InlineData(SquadProfile.RelegationCandidate)]
+    public void GeneratesSquadInsideProfileMeanAndBandCoverage(SquadProfile profile)
+    {
+        var generated = CreateGenerator().GenerateDetailed(25, "club-profile", 2, 50.5, "Lumenia", profile, 77321);
+        var squad = generated.Players;
+        var bands = _parameters.SquadGeneration.Profiles[profile];
+        Assert.InRange(generated.MeanOvr, bands.MeanMinimum, bands.MeanMaximum);
+        Assert.True(generated.StarterBandCoverage >= _parameters.SquadGeneration.MinimumBandCoverage);
+        Assert.True(generated.BenchBandCoverage >= _parameters.SquadGeneration.MinimumBandCoverage);
+        Assert.Equal(11, generated.StarterIds.Count);
+        Assert.Contains(generated.Formation, new[] { "4-4-2", "4-3-3" });
+        Assert.InRange(generated.Attempts, 1, _parameters.SquadGeneration.MaxAttempts);
+        Assert.InRange(generated.TargetMeanOvr, bands.MeanMinimum, bands.MeanMaximum);
+    }
+
+    private static System.Collections.Generic.HashSet<int> Select442StarterIds(
+        System.Collections.Generic.IReadOnlyList<Player> squad, IReadOnlyList<int> ovr)
+    {
+        var selected = new System.Collections.Generic.HashSet<int>();
+        void Pick(Position position, int count)
+        {
+            foreach (var index in Enumerable.Range(0, squad.Count).Where(i => squad[i].Positions[0] == position)
+                         .OrderByDescending(i => ovr[i]).ThenBy(i => i).Take(count)) selected.Add(index);
+        }
+        Pick(Position.Goalkeeper, 1); Pick(Position.LeftBack, 1); Pick(Position.RightBack, 1);
+        Pick(Position.CentreBack, 2); Pick(Position.CentralMidfielder, 2); Pick(Position.LeftWinger, 1);
+        Pick(Position.RightWinger, 1); Pick(Position.Striker, 2);
+        return selected;
+    }
+
+    [Theory]
     [InlineData(17)]
     [InlineData(23)]
     [InlineData(24)]
     [InlineData(26)]
     public void RejectsUnsupportedSquadSizes(int size) =>
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            CreateGenerator().Generate(size, "club-1", 1, 50.5, "Lumenia", 1));
+            CreateGenerator().Generate(size, "club-1", 1, 50.5, "Lumenia", SquadProfile.LowerHalf, 1));
 
-    private SquadGenerator CreateGenerator() => new(new AttributeGenerator(_parameters.AttributeGeneration,
-        new OvrCalculator(_profiles)));
+    private SquadGenerator CreateGenerator()
+    {
+        var ovrCalculator = new OvrCalculator(_profiles);
+        return new SquadGenerator(new AttributeGenerator(_parameters.AttributeGeneration, ovrCalculator), ovrCalculator,
+            _parameters.SquadGeneration);
+    }
 }

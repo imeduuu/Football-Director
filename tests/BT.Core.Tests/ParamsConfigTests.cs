@@ -70,7 +70,7 @@ public sealed class ParamsConfigTests
     [Fact]
     public void RejectsDuplicateJsonPropertiesBeforeDeserialization()
     {
-        var json = File.ReadAllText(ParamsPath).Replace("\"version\": \"1.1.0\",", "\"version\": \"1.1.0\",\"version\": \"duplicate\",");
+        var json = File.ReadAllText(ParamsPath).Replace("\"version\": \"1.2.0\",", "\"version\": \"1.2.0\",\"version\": \"duplicate\",");
         var error = Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(json));
         Assert.Contains("duplicate property", error.Message);
     }

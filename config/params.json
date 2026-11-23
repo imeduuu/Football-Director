@@ -1,5 +1,20 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "squadGeneration": {
+    "minimumBandCoverage": 0.8,
+    "maxAttempts": 40,
+    "reputationMeanShift": 0.04,
+    "divisionMeanShift": 0.5,
+    "referenceReputation": 50.5,
+    "referenceDivisionLevel": 2,
+    "referenceOvr": 60,
+    "profiles": [
+      { "name": "Favorite", "meanMinimum": 68, "meanMaximum": 72, "starterMinimum": 70, "starterMaximum": 76, "benchMinimum": 62, "benchMaximum": 70 },
+      { "name": "UpperHalf", "meanMinimum": 63, "meanMaximum": 68, "starterMinimum": 65, "starterMaximum": 71, "benchMinimum": 58, "benchMaximum": 66 },
+      { "name": "LowerHalf", "meanMinimum": 58, "meanMaximum": 63, "starterMinimum": 60, "starterMaximum": 66, "benchMinimum": 53, "benchMaximum": 62 },
+      { "name": "RelegationCandidate", "meanMinimum": 54, "meanMaximum": 59, "starterMinimum": 56, "starterMaximum": 62, "benchMinimum": 48, "benchMaximum": 58 }
+    ]
+  },
   "fitness": { "minimum": 0, "maximum": 100, "preseasonTarget": 75 },
   "morale": { "minimum": 0, "maximum": 100 },
   "ageRecoveryFactors": [
