@@ -4,7 +4,7 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
     "fitness": {
@@ -47,6 +47,88 @@
         "friendlyWeight": { "type": "number", "minimum": 0 },
         "matchChangeMinimum": { "type": "number" },
         "matchChangeMaximum": { "type": "number" }
+      }
+    },
+    "attributeGeneration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum", "maximum", "standardDeviation", "referenceDivisionLevel", "referenceMean", "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities"],
+      "properties": {
+        "minimum": { "const": 1 },
+        "maximum": { "const": 99 },
+        "standardDeviation": { "type": "number", "exclusiveMinimum": 0 },
+        "referenceDivisionLevel": { "type": "integer", "minimum": 1 },
+        "referenceMean": {
+          "type": "number", "minimum": 1, "maximum": 99,
+          "description": "Provisional calibration anchor. Current value 60 is temporary and must be recalibrated using complete squads and OvrCalculator before production balance is approved."
+        },
+        "divisionMeanGap": { "type": "number", "exclusiveMinimum": 0 },
+        "reputation": {
+          "type": "object", "additionalProperties": false,
+          "required": ["minimum", "maximum", "neutral", "scale", "maximumShift", "attributeWeights"],
+          "properties": {
+            "minimum": { "const": 1 },
+            "maximum": { "const": 100 },
+            "neutral": { "type": "number", "minimum": 1, "maximum": 100 },
+            "scale": { "type": "number", "exclusiveMinimum": 0 },
+            "maximumShift": { "type": "number", "minimum": 0 },
+            "attributeWeights": { "$ref": "#/$defs/attributeWeights" }
+          }
+        },
+        "ageCurve": {
+          "type": "object", "additionalProperties": false,
+          "required": ["growthStartAge", "growthEndAge", "declineStartAge", "declineEndAge", "growthAmplitudes", "declineAmplitudes"],
+          "properties": {
+            "growthStartAge": { "type": "integer", "minimum": 0 },
+            "growthEndAge": { "type": "integer", "minimum": 1 },
+            "declineStartAge": { "type": "integer", "minimum": 1 },
+            "declineEndAge": { "type": "integer", "minimum": 2 },
+            "growthAmplitudes": { "$ref": "#/$defs/familyAmplitudes" },
+            "declineAmplitudes": { "$ref": "#/$defs/familyAmplitudes" }
+          }
+        },
+        "positionScale": { "type": "number", "minimum": 0, "maximum": 2, "default": 1.0 },
+        "attributes": {
+          "type": "array", "minItems": 18, "maxItems": 18,
+          "items": { "enum": ["Passing", "Dribbling", "Finishing", "LongShots", "Tackling", "Marking", "Aerial", "Goalkeeping", "Pace", "Stamina", "Strength", "Agility", "Vision", "Positioning", "Concentration", "Aggression", "Leadership", "Composure"] }
+        },
+        "positionAffinities": {
+          "type": "array", "minItems": 15, "maxItems": 15,
+          "items": { "$ref": "#/$defs/positionAffinity" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "attributeWeights": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Passing", "Dribbling", "Finishing", "LongShots", "Tackling", "Marking", "Aerial", "Goalkeeping", "Pace", "Stamina", "Strength", "Agility", "Vision", "Positioning", "Concentration", "Aggression", "Leadership", "Composure"],
+      "properties": {
+        "Passing": { "type": "number", "minimum": 0, "maximum": 1 }, "Dribbling": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Finishing": { "type": "number", "minimum": 0, "maximum": 1 }, "LongShots": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Tackling": { "type": "number", "minimum": 0, "maximum": 1 }, "Marking": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Aerial": { "type": "number", "minimum": 0, "maximum": 1 }, "Goalkeeping": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Pace": { "type": "number", "minimum": 0, "maximum": 1 }, "Stamina": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Strength": { "type": "number", "minimum": 0, "maximum": 1 }, "Agility": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Vision": { "type": "number", "minimum": 0, "maximum": 1 }, "Positioning": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Concentration": { "type": "number", "minimum": 0, "maximum": 1 }, "Aggression": { "type": "number", "minimum": 0, "maximum": 1 },
+        "Leadership": { "type": "number", "minimum": 0, "maximum": 1 }, "Composure": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "familyAmplitudes": {
+      "type": "object", "additionalProperties": false,
+      "required": ["technical", "mental", "physical"],
+      "properties": {
+        "technical": { "type": "number", "minimum": 0, "maximum": 2 },
+        "mental": { "type": "number", "minimum": 0, "maximum": 2 },
+        "physical": { "type": "number", "minimum": 0, "maximum": 2 }
+      }
+    },
+    "positionAffinity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "values"],
+      "properties": {
+        "role": { "enum": ["Goalkeeper", "SweeperKeeper", "CentreBackMarker", "BallPlayingCentreBack", "DefensiveFullBack", "WingBack", "DefensiveMidfielderDestroyer", "DefensiveMidfielderPlaymaker", "BoxToBoxMidfielder", "AttackingMidfielderPlaymaker", "Winger", "InvertedWinger", "AdvancedForward", "TargetForward", "PressingForward"] },
+        "values": { "type": "array", "minItems": 18, "maxItems": 18, "items": { "enum": [-0.5, 0, 0.5, 1] } }
       }
     }
   }

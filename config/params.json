@@ -1,14 +1,7 @@
 {
-  "version": "1.0.0",
-  "fitness": {
-    "minimum": 0,
-    "maximum": 100,
-    "preseasonTarget": 75
-  },
-  "morale": {
-    "minimum": 0,
-    "maximum": 100
-  },
+  "version": "1.1.0",
+  "fitness": { "minimum": 0, "maximum": 100, "preseasonTarget": 75 },
+  "morale": { "minimum": 0, "maximum": 100 },
   "ageRecoveryFactors": [
     { "maximumAge": 24, "factor": 1.05 },
     { "maximumAge": 29, "factor": 1.0 },
@@ -16,13 +9,59 @@
     { "maximumAge": null, "factor": 0.85 }
   ],
   "boardConfidence": {
-    "minimum": 0,
-    "maximum": 100,
-    "initial": 60,
-    "leagueWeight": 2.0,
-    "cupWeight": 1.2,
-    "friendlyWeight": 0,
-    "matchChangeMinimum": -8,
-    "matchChangeMaximum": 8
+    "minimum": 0, "maximum": 100, "initial": 60,
+    "leagueWeight": 2.0, "cupWeight": 1.2, "friendlyWeight": 0,
+    "matchChangeMinimum": -8, "matchChangeMaximum": 8
+  },
+  "attributeGeneration": {
+    "minimum": 1,
+    "maximum": 99,
+    "standardDeviation": 7,
+    "referenceDivisionLevel": 2,
+    "referenceMean": 60,
+    "divisionMeanGap": 2,
+    "reputation": {
+      "minimum": 1,
+      "maximum": 100,
+      "neutral": 50.5,
+      "scale": 30,
+      "maximumShift": 1,
+      "attributeWeights": {
+        "Passing": 0.75, "Dribbling": 0.75, "Finishing": 0.75, "LongShots": 0.75,
+        "Tackling": 0.75, "Marking": 0.75, "Aerial": 0.75, "Goalkeeping": 0.75,
+        "Pace": 0.5, "Stamina": 0.5, "Strength": 0.5, "Agility": 0.5,
+        "Vision": 1.0, "Positioning": 1.0, "Concentration": 1.0,
+        "Aggression": 1.0, "Leadership": 1.0, "Composure": 1.0
+      }
+    },
+    "ageCurve": {
+      "growthStartAge": 16, "growthEndAge": 24,
+      "declineStartAge": 29, "declineEndAge": 36,
+      "growthAmplitudes": { "technical": 0.5, "mental": 0.5, "physical": 0.5 },
+      "declineAmplitudes": { "technical": 0.5, "mental": 0.25, "physical": 1.0 }
+    },
+    "positionScale": 1.0,
+    "attributes": [
+      "Passing", "Dribbling", "Finishing", "LongShots", "Tackling", "Marking",
+      "Aerial", "Goalkeeping", "Pace", "Stamina", "Strength", "Agility",
+      "Vision", "Positioning", "Concentration", "Aggression", "Leadership", "Composure"
+    ],
+    "positionAffinities": [
+      { "role": "Goalkeeper", "values": [0,-0.5,-0.5,0,0,0,0,1,0,0,0,0.5,0,1,0.5,0,0,0.5] },
+      { "role": "SweeperKeeper", "values": [1,0,-0.5,0,0,0,-0.5,1,1,0.5,0,0.5,0,0,0,0,0,0.5] },
+      { "role": "CentreBackMarker", "values": [0,-0.5,-0.5,0,1,1,0.5,0,0,0,0.5,0,0,0.5,0,0,0,0] },
+      { "role": "BallPlayingCentreBack", "values": [1,0,-0.5,0,1,1,0,0,0,0.5,0,0,0,0.5,0,-0.5,0,0.5] },
+      { "role": "DefensiveFullBack", "values": [0,0,-0.5,-0.5,1,1,0,0,1,0.5,0,0.5,0,0.5,0,0,0,0] },
+      { "role": "WingBack", "values": [0.5,1,0,0,0.5,0,-0.5,0,1,1,-0.5,0.5,0,0,0,0,0,0] },
+      { "role": "DefensiveMidfielderDestroyer", "values": [0,-0.5,-0.5,0,1,1,0,0,0,0.5,1,0,0,0.5,0,0.5,0,0] },
+      { "role": "DefensiveMidfielderPlaymaker", "values": [1,0,-0.5,0,0.5,0,-0.5,0,0,0.5,0,0,1,1,0,0,0,0.5] },
+      { "role": "BoxToBoxMidfielder", "values": [0.5,0,0,0,0.5,0,-0.5,-0.5,0,1,0.5,0,0,0.5,0,0.5,0,0] },
+      { "role": "AttackingMidfielderPlaymaker", "values": [0.5,1,0,0,-0.5,-0.5,0,0,0,0,0,0,1,0,0,0,0,0.5] },
+      { "role": "Winger", "values": [0.5,1,0.5,0,-0.5,-0.5,0,0,1,0,0,0.5,0,0,0,0,0,0] },
+      { "role": "InvertedWinger", "values": [0,1,1,1,-0.5,-0.5,0,0,0.5,0,0,0.5,0,0.5,0,0,0,0.5] },
+      { "role": "AdvancedForward", "values": [0,0.5,1,0,-0.5,-0.5,0,0,1,0.5,0,0,0,0.5,0,0,0,0.5] },
+      { "role": "TargetForward", "values": [0.5,0,0.5,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0.5] },
+      { "role": "PressingForward", "values": [0,0,0.5,0,1,0,-0.5,0,0.5,1,0.5,0,-0.5,0,0,1,0,0] }
+    ]
   }
 }

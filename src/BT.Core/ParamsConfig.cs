@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using BT.Core.Domain;
+using PlayerAttribute = BT.Core.Domain.Attribute;
 
 namespace BT.Core;
 
@@ -12,17 +15,20 @@ public sealed class ParamsConfig
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = false,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
         UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
     };
 
     private ParamsConfig(string version, FitnessParams fitness, MoraleParams morale,
-        IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence)
+        IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
+        AttributeGenerationParams attributeGeneration)
     {
         Version = version;
         Fitness = fitness;
         Morale = morale;
         AgeRecoveryFactors = ageRecoveryFactors;
         BoardConfidence = boardConfidence;
+        AttributeGeneration = attributeGeneration;
     }
 
     public string Version { get; }
@@ -30,6 +36,30 @@ public sealed class ParamsConfig
     public MoraleParams Morale { get; }
     public IReadOnlyList<AgeRecoveryFactor> AgeRecoveryFactors { get; }
     public BoardConfidenceParams BoardConfidence { get; }
+    public AttributeGenerationParams AttributeGeneration { get; }
+
+    public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
+        new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
+        {
+            [PlayerAttribute.Passing] = AttributeFamily.Technical,
+            [PlayerAttribute.Dribbling] = AttributeFamily.Technical,
+            [PlayerAttribute.Finishing] = AttributeFamily.Technical,
+            [PlayerAttribute.LongShots] = AttributeFamily.Technical,
+            [PlayerAttribute.Tackling] = AttributeFamily.Technical,
+            [PlayerAttribute.Marking] = AttributeFamily.Technical,
+            [PlayerAttribute.Aerial] = AttributeFamily.Technical,
+            [PlayerAttribute.Goalkeeping] = AttributeFamily.Technical,
+            [PlayerAttribute.Vision] = AttributeFamily.Mental,
+            [PlayerAttribute.Positioning] = AttributeFamily.Mental,
+            [PlayerAttribute.Concentration] = AttributeFamily.Mental,
+            [PlayerAttribute.Aggression] = AttributeFamily.Mental,
+            [PlayerAttribute.Leadership] = AttributeFamily.Mental,
+            [PlayerAttribute.Composure] = AttributeFamily.Mental,
+            [PlayerAttribute.Pace] = AttributeFamily.Physical,
+            [PlayerAttribute.Stamina] = AttributeFamily.Physical,
+            [PlayerAttribute.Strength] = AttributeFamily.Physical,
+            [PlayerAttribute.Agility] = AttributeFamily.Physical
+        });
 
     public static ParamsConfig Load(string path)
     {
@@ -44,7 +74,8 @@ public sealed class ParamsConfig
         try
         {
             using var document = JsonDocument.Parse(json);
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence");
+            RejectDuplicateProperties(document.RootElement, "$" );
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -52,6 +83,16 @@ public sealed class ParamsConfig
                 EnsureRequiredProperties(band, "maximumAge", "factor");
             EnsureRequiredProperties(root.GetProperty("boardConfidence"), "minimum", "maximum", "initial",
                 "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum");
+            var generation = root.GetProperty("attributeGeneration");
+            EnsureRequiredProperties(generation, "minimum", "maximum", "standardDeviation", "referenceDivisionLevel", "referenceMean",
+                "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities");
+            EnsureRequiredProperties(generation.GetProperty("reputation"), "minimum", "maximum", "neutral", "scale", "maximumShift", "attributeWeights");
+            EnsureRequiredProperties(generation.GetProperty("ageCurve"), "growthStartAge", "growthEndAge", "declineStartAge", "declineEndAge",
+                "growthAmplitudes", "declineAmplitudes");
+            EnsureRequiredProperties(generation.GetProperty("ageCurve").GetProperty("growthAmplitudes"), "technical", "mental", "physical");
+            EnsureRequiredProperties(generation.GetProperty("ageCurve").GetProperty("declineAmplitudes"), "technical", "mental", "physical");
+            foreach (var profile in generation.GetProperty("positionAffinities").EnumerateArray())
+                EnsureRequiredProperties(profile, "role", "values");
             dto = JsonSerializer.Deserialize<Dto>(json, JsonOptions)
                 ?? throw new InvalidDataException("The parameter document is empty.");
         }
@@ -61,6 +102,21 @@ public sealed class ParamsConfig
         }
 
         Validate(dto);
+        var generationDto = dto.AttributeGeneration!;
+        var generationParams = new AttributeGenerationParams(generationDto.Minimum, generationDto.Maximum,
+            generationDto.StandardDeviation, generationDto.ReferenceDivisionLevel, generationDto.ReferenceMean,
+            generationDto.DivisionMeanGap,
+            new ReputationGenerationParams(generationDto.Reputation!.Minimum, generationDto.Reputation.Maximum,
+                generationDto.Reputation.Neutral, generationDto.Reputation.Scale, generationDto.Reputation.MaximumShift,
+                ToAttributeMap(generationDto.Reputation.AttributeWeights!)),
+            new AttributeAgeCurveParams(generationDto.AgeCurve!.GrowthStartAge, generationDto.AgeCurve.GrowthEndAge,
+                generationDto.AgeCurve.DeclineStartAge, generationDto.AgeCurve.DeclineEndAge,
+                ToAmplitudes(generationDto.AgeCurve.GrowthAmplitudes!), ToAmplitudes(generationDto.AgeCurve.DeclineAmplitudes!)),
+            generationDto.PositionScale,
+            Array.AsReadOnly(generationDto.Attributes!.Select(ParseAttribute).ToArray()),
+            Array.AsReadOnly(generationDto.PositionAffinities!.Select(profile =>
+                new PositionAffinityProfile(ParseRole(profile.Role!), Array.AsReadOnly(profile.Values!.ToArray()))).ToArray()));
+
         return new ParamsConfig(dto.Version!,
             new FitnessParams(dto.Fitness!.Minimum, dto.Fitness.Maximum, dto.Fitness.PreseasonTarget),
             new MoraleParams(dto.Morale!.Minimum, dto.Morale.Maximum),
@@ -68,7 +124,7 @@ public sealed class ParamsConfig
             new BoardConfidenceParams(dto.BoardConfidence!.Minimum, dto.BoardConfidence.Maximum,
                 dto.BoardConfidence.Initial, dto.BoardConfidence.LeagueWeight, dto.BoardConfidence.CupWeight,
                 dto.BoardConfidence.FriendlyWeight, dto.BoardConfidence.MatchChangeMinimum,
-                dto.BoardConfidence.MatchChangeMaximum));
+                dto.BoardConfidence.MatchChangeMaximum), generationParams);
     }
 
     private static void Validate(Dto dto)
@@ -78,6 +134,7 @@ public sealed class ParamsConfig
         Require(dto.Morale is not null, "morale is required.");
         Require(dto.AgeRecoveryFactors is { Count: > 0 }, "ageRecoveryFactors must not be empty.");
         Require(dto.BoardConfidence is not null, "boardConfidence is required.");
+        Require(dto.AttributeGeneration is not null, "attributeGeneration is required.");
 
         var fitness = dto.Fitness!;
         var morale = dto.Morale!;
@@ -105,13 +162,112 @@ public sealed class ParamsConfig
         }
         Require(dto.AgeRecoveryFactors!.Last().MaximumAge is null, "the final age recovery band must be open-ended.");
 
-        Require(confidence.Minimum <= confidence.Maximum, "boardConfidence.minimum must not exceed boardConfidence.maximum.");
+        Require(confidence.Minimum <= confidence.Maximum, "boardConfidence.minimum must not exceed its maximum.");
         Require(InRange(confidence.Initial, confidence.Minimum, confidence.Maximum), "boardConfidence.initial must be within its range.");
         Require(confidence.LeagueWeight >= 0 && double.IsFinite(confidence.LeagueWeight), "leagueWeight must be finite and non-negative.");
         Require(confidence.CupWeight >= 0 && double.IsFinite(confidence.CupWeight), "cupWeight must be finite and non-negative.");
         Require(confidence.FriendlyWeight >= 0 && double.IsFinite(confidence.FriendlyWeight), "friendlyWeight must be finite and non-negative.");
-        Require(confidence.MatchChangeMinimum <= confidence.MatchChangeMaximum, "match change minimum must not exceed maximum.");
+        Require(double.IsFinite(confidence.MatchChangeMinimum) && double.IsFinite(confidence.MatchChangeMaximum) &&
+            confidence.MatchChangeMinimum <= confidence.MatchChangeMaximum, "board confidence match change bounds are invalid.");
+
+        ValidateAttributeGeneration(dto.AttributeGeneration!);
     }
+
+    private static void ValidateAttributeGeneration(AttributeGenerationDto generation)
+    {
+        Require(generation.Minimum == 1 && generation.Maximum == 99, "attributeGeneration bounds must be [1,99].");
+        Require(generation.StandardDeviation > 0 && double.IsFinite(generation.StandardDeviation), "standardDeviation must be finite and positive.");
+        Require(generation.ReferenceDivisionLevel >= 1, "referenceDivisionLevel must be at least 1.");
+        Require(InRange(generation.ReferenceMean, generation.Minimum, generation.Maximum), "referenceMean must be finite and within attribute bounds.");
+        Require(generation.DivisionMeanGap > 0 && double.IsFinite(generation.DivisionMeanGap), "divisionMeanGap must be finite and positive.");
+        Require(generation.PositionScale >= 0 && generation.PositionScale <= 2 && double.IsFinite(generation.PositionScale), "positionScale must be finite and in [0,2].");
+
+        var expectedAttributes = Enum.GetValues(typeof(PlayerAttribute)).Cast<PlayerAttribute>().OrderBy(x => x).ToArray();
+        Require(generation.Attributes is { Count: > 0 } && generation.Attributes.Count == expectedAttributes.Length,
+            "attributeGeneration.attributes must list every PlayerAttribute exactly once.");
+        var attributes = generation.Attributes!.Select(ParseAttribute).ToArray();
+        Require(attributes.Distinct().Count() == attributes.Length && attributes.SequenceEqual(expectedAttributes),
+            "attributeGeneration.attributes must match the PlayerAttribute enum order exactly.");
+
+        var reputation = generation.Reputation ?? throw new InvalidDataException("Invalid parameter configuration: reputation is required.");
+        Require(reputation.Minimum == 1 && reputation.Maximum == 100 && reputation.Minimum <= reputation.Maximum,
+            "reputation bounds must be [1,100].");
+        Require(InRange(reputation.Neutral, reputation.Minimum, reputation.Maximum), "reputation.neutral must be within its bounds.");
+        Require(reputation.Scale > 0 && double.IsFinite(reputation.Scale), "reputation.scale must be finite and positive.");
+        Require(reputation.MaximumShift >= 0 && double.IsFinite(reputation.MaximumShift), "reputation.maximumShift must be finite and non-negative.");
+        ValidateAttributeMap(reputation.AttributeWeights, "reputation.attributeWeights", 0, 1);
+
+        var age = generation.AgeCurve ?? throw new InvalidDataException("Invalid parameter configuration: ageCurve is required.");
+        Require(age.GrowthStartAge >= 0 && age.GrowthStartAge < age.GrowthEndAge && age.GrowthEndAge <= age.DeclineStartAge &&
+            age.DeclineStartAge < age.DeclineEndAge, "ageCurve ages must satisfy growthStart < growthEnd <= declineStart < declineEnd.");
+        ValidateAmplitudes(age.GrowthAmplitudes, "growthAmplitudes");
+        ValidateAmplitudes(age.DeclineAmplitudes, "declineAmplitudes");
+        ValidateFamilyCoverage();
+
+        var roles = Enum.GetValues(typeof(Role)).Cast<Role>().OrderBy(x => x).ToArray();
+        Require(generation.PositionAffinities is { Count: > 0 } && generation.PositionAffinities.Count == roles.Length,
+            "positionAffinities must contain every Role exactly once.");
+        var seenRoles = new HashSet<Role>();
+        foreach (var profile in generation.PositionAffinities!)
+        {
+            var role = ParseRole(profile.Role);
+            Require(seenRoles.Add(role), $"positionAffinities contains duplicate role '{profile.Role}'.");
+            Require(profile.Values is { Count: 18 }, $"position affinity '{profile.Role}' must contain 18 values.");
+            foreach (var value in profile.Values!)
+                Require(double.IsFinite(value) && (value == -0.5 || value == 0 || value == 0.5 || value == 1),
+                    $"position affinity '{profile.Role}' contains an invalid value.");
+        }
+        Require(seenRoles.SetEquals(roles), "positionAffinities must cover every Role exactly once.");
+    }
+
+    private static void ValidateFamilyCoverage()
+    {
+        var enumAttributes = Enum.GetValues(typeof(PlayerAttribute)).Cast<PlayerAttribute>().ToHashSet();
+        Require(AttributeFamilies.Count == enumAttributes.Count && AttributeFamilies.Keys.ToHashSet().SetEquals(enumAttributes),
+            "attribute family mapping must cover every PlayerAttribute exactly once.");
+        Require(Enum.GetValues(typeof(AttributeFamily)).Cast<AttributeFamily>().All(family => AttributeFamilies.Values.Contains(family)),
+            "attribute family mapping must include Technical, Mental, and Physical.");
+    }
+
+    private static void ValidateAmplitudes(AmplitudesDto? amplitudes, string name)
+    {
+        Require(amplitudes is not null, $"ageCurve.{name} is required.");
+        Require(amplitudes!.Technical >= 0 && amplitudes.Technical <= 2 && double.IsFinite(amplitudes.Technical) &&
+            amplitudes.Mental >= 0 && amplitudes.Mental <= 2 && double.IsFinite(amplitudes.Mental) &&
+            amplitudes.Physical >= 0 && amplitudes.Physical <= 2 && double.IsFinite(amplitudes.Physical),
+            $"ageCurve.{name} values must be finite and in [0,2].");
+    }
+
+    private static void ValidateAttributeMap(Dictionary<string, double>? map, string name, double minimum, double maximum)
+    {
+        Require(map is not null, $"{name} is required.");
+        var parsed = map!.Select(pair => (PlayerAttribute: ParseAttribute(pair.Key), pair.Value)).ToArray();
+        Require(parsed.Length == Enum.GetValues(typeof(PlayerAttribute)).Length && parsed.Select(x => x.PlayerAttribute).Distinct().Count() == parsed.Length,
+            $"{name} must contain every PlayerAttribute exactly once.");
+        foreach (var value in parsed)
+            Require(double.IsFinite(value.Value) && value.Value >= minimum && value.Value <= maximum,
+                $"{name} values must be finite and in [{minimum},{maximum}].");
+    }
+
+    private static IReadOnlyDictionary<PlayerAttribute, double> ToAttributeMap(Dictionary<string, double> source) =>
+        new ReadOnlyDictionary<PlayerAttribute, double>(source.ToDictionary(x => ParseAttribute(x.Key), x => x.Value));
+
+    private static PlayerAttribute ParseAttribute(string? name)
+    {
+        if (name is null || !Enum.TryParse(name, false, out PlayerAttribute attribute) || Enum.GetName(typeof(PlayerAttribute), attribute) != name)
+            throw new InvalidDataException($"Invalid parameter configuration: unknown attribute '{name}'.");
+        return attribute;
+    }
+
+    private static Role ParseRole(string? name)
+    {
+        if (name is null || !Enum.TryParse(name, false, out Role role) || Enum.GetName(typeof(Role), role) != name)
+            throw new InvalidDataException($"Invalid parameter configuration: unknown role '{name}'.");
+        return role;
+    }
+
+    private static AttributeFamilyAmplitudes ToAmplitudes(AmplitudesDto value) =>
+        new(value.Technical, value.Mental, value.Physical);
 
     private static bool InRange(double value, double minimum, double maximum) =>
         double.IsFinite(value) && value >= minimum && value <= maximum;
@@ -123,6 +279,25 @@ public sealed class ParamsConfig
         foreach (var name in names)
             if (!element.TryGetProperty(name, out _))
                 throw new InvalidDataException($"Invalid parameter configuration: required property '{name}' is missing.");
+    }
+
+    private static void RejectDuplicateProperties(JsonElement element, string path)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                    throw new InvalidDataException($"Invalid parameter configuration: duplicate property '{property.Name}' at {path}.");
+                RejectDuplicateProperties(property.Value, path + "." + property.Name);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            var index = 0;
+            foreach (var item in element.EnumerateArray()) RejectDuplicateProperties(item, path + "[" + index++ + "]");
+        }
     }
 
     private static void Require(bool condition, string message)
@@ -137,6 +312,7 @@ public sealed class ParamsConfig
         public MoraleDto? Morale { get; set; }
         public List<AgeRecoveryDto>? AgeRecoveryFactors { get; set; }
         public BoardConfidenceDto? BoardConfidence { get; set; }
+        public AttributeGenerationDto? AttributeGeneration { get; set; }
     }
 
     private sealed class FitnessDto { public double Minimum { get; set; } public double Maximum { get; set; } public double PreseasonTarget { get; set; } }
@@ -148,7 +324,29 @@ public sealed class ParamsConfig
         public double LeagueWeight { get; set; } public double CupWeight { get; set; } public double FriendlyWeight { get; set; }
         public double MatchChangeMinimum { get; set; } public double MatchChangeMaximum { get; set; }
     }
+    private sealed class AttributeGenerationDto
+    {
+        public int Minimum { get; set; } public int Maximum { get; set; } public double StandardDeviation { get; set; }
+        public int ReferenceDivisionLevel { get; set; } public double ReferenceMean { get; set; } public double DivisionMeanGap { get; set; }
+        public ReputationDto? Reputation { get; set; } public AgeCurveDto? AgeCurve { get; set; } public double PositionScale { get; set; }
+        public List<string>? Attributes { get; set; } public List<PositionAffinityDto>? PositionAffinities { get; set; }
+    }
+    private sealed class ReputationDto
+    {
+        public double Minimum { get; set; } public double Maximum { get; set; } public double Neutral { get; set; }
+        public double Scale { get; set; } public double MaximumShift { get; set; } public Dictionary<string, double>? AttributeWeights { get; set; }
+    }
+    private sealed class AgeCurveDto
+    {
+        public int GrowthStartAge { get; set; } public int GrowthEndAge { get; set; }
+        public int DeclineStartAge { get; set; } public int DeclineEndAge { get; set; }
+        public AmplitudesDto? GrowthAmplitudes { get; set; } public AmplitudesDto? DeclineAmplitudes { get; set; }
+    }
+    private sealed class AmplitudesDto { public double Technical { get; set; } public double Mental { get; set; } public double Physical { get; set; } }
+    private sealed class PositionAffinityDto { public string? Role { get; set; } public List<double>? Values { get; set; } }
 }
+
+public enum AttributeFamily { Technical, Mental, Physical }
 
 public sealed class FitnessParams
 {
@@ -176,4 +374,50 @@ public sealed class BoardConfidenceParams
     public double Minimum { get; } public double Maximum { get; } public double Initial { get; }
     public double LeagueWeight { get; } public double CupWeight { get; } public double FriendlyWeight { get; }
     public double MatchChangeMinimum { get; } public double MatchChangeMaximum { get; }
+}
+public sealed class AttributeGenerationParams
+{
+    internal AttributeGenerationParams(int minimum, int maximum, double standardDeviation, int referenceDivisionLevel,
+        double referenceMean, double divisionMeanGap, ReputationGenerationParams reputation, AttributeAgeCurveParams ageCurve,
+        double positionScale, IReadOnlyList<PlayerAttribute> attributes, IReadOnlyList<PositionAffinityProfile> positionAffinities)
+    {
+        Minimum = minimum; Maximum = maximum; StandardDeviation = standardDeviation; ReferenceDivisionLevel = referenceDivisionLevel;
+        ReferenceMean = referenceMean; DivisionMeanGap = divisionMeanGap; Reputation = reputation; AgeCurve = ageCurve;
+        PositionScale = positionScale; Attributes = attributes; PositionAffinities = positionAffinities;
+    }
+    public int Minimum { get; } public int Maximum { get; } public double StandardDeviation { get; }
+    public int ReferenceDivisionLevel { get; }
+    /// <summary>Provisional calibration anchor; the configured value 60 is not final production balance.</summary>
+    public double ReferenceMean { get; }
+    public double DivisionMeanGap { get; }
+    public ReputationGenerationParams Reputation { get; } public AttributeAgeCurveParams AgeCurve { get; }
+    public double PositionScale { get; } public IReadOnlyList<PlayerAttribute> Attributes { get; }
+    public IReadOnlyList<PositionAffinityProfile> PositionAffinities { get; }
+}
+public sealed class ReputationGenerationParams
+{
+    internal ReputationGenerationParams(double minimum, double maximum, double neutral, double scale, double maximumShift,
+        IReadOnlyDictionary<PlayerAttribute, double> attributeWeights)
+    { Minimum = minimum; Maximum = maximum; Neutral = neutral; Scale = scale; MaximumShift = maximumShift; AttributeWeights = attributeWeights; }
+    public double Minimum { get; } public double Maximum { get; } public double Neutral { get; }
+    public double Scale { get; } public double MaximumShift { get; }
+    public IReadOnlyDictionary<PlayerAttribute, double> AttributeWeights { get; }
+}
+public sealed class AttributeAgeCurveParams
+{
+    internal AttributeAgeCurveParams(int growthStartAge, int growthEndAge, int declineStartAge, int declineEndAge,
+        AttributeFamilyAmplitudes growthAmplitudes, AttributeFamilyAmplitudes declineAmplitudes)
+    { GrowthStartAge = growthStartAge; GrowthEndAge = growthEndAge; DeclineStartAge = declineStartAge; DeclineEndAge = declineEndAge; GrowthAmplitudes = growthAmplitudes; DeclineAmplitudes = declineAmplitudes; }
+    public int GrowthStartAge { get; } public int GrowthEndAge { get; } public int DeclineStartAge { get; } public int DeclineEndAge { get; }
+    public AttributeFamilyAmplitudes GrowthAmplitudes { get; } public AttributeFamilyAmplitudes DeclineAmplitudes { get; }
+}
+public sealed class AttributeFamilyAmplitudes
+{
+    internal AttributeFamilyAmplitudes(double technical, double mental, double physical) { Technical = technical; Mental = mental; Physical = physical; }
+    public double Technical { get; } public double Mental { get; } public double Physical { get; }
+}
+public sealed class PositionAffinityProfile
+{
+    internal PositionAffinityProfile(Role role, IReadOnlyList<double> values) { Role = role; Values = values; }
+    public Role Role { get; } public IReadOnlyList<double> Values { get; }
 }
