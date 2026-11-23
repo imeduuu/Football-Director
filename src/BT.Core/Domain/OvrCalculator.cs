@@ -8,16 +8,17 @@ namespace BT.Core.Domain;
 public sealed class OvrCalculator
 {
     private readonly RoleProfiles _profiles;
+    private readonly PositionalFamiliarityParams _familiarity;
 
-    public OvrCalculator(RoleProfiles profiles)
+    public OvrCalculator(RoleProfiles profiles, PositionalFamiliarityParams familiarity)
     {
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
+        _familiarity = familiarity ?? throw new ArgumentNullException(nameof(familiarity));
     }
 
     /// <summary>
     /// Calculates OVR from base attributes, then applies positional familiarity.
-    /// Use 100 for the primary position, 92 or 85 for secondary positions, and
-    /// a value from 70 to 100 for a trained unfamiliar position.
+    /// Familiarity values and allowed bounds come from the versioned parameters.
     /// </summary>
     public int Calculate(Player player, Role role, int positionalFamiliarityPercent)
     {
@@ -29,9 +30,9 @@ public sealed class OvrCalculator
     public int CalculateAttributes(IReadOnlyDictionary<Attribute, int> attributes, Role role, int positionalFamiliarityPercent)
     {
         if (attributes is null) throw new ArgumentNullException(nameof(attributes));
-        if (positionalFamiliarityPercent is < 70 or > 100)
+        if (positionalFamiliarityPercent < _familiarity.Minimum || positionalFamiliarityPercent > _familiarity.Maximum)
             throw new ArgumentOutOfRangeException(nameof(positionalFamiliarityPercent),
-                "Positional familiarity must be between 70 and 100 percent.");
+                "Positional familiarity is outside the configured bounds.");
         if (attributes.Count != Enum.GetValues(typeof(Attribute)).Length)
             throw new ArgumentException("A complete set of visible attributes is required.", nameof(attributes));
 

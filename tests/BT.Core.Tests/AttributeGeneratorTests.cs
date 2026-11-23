@@ -17,7 +17,7 @@ public sealed class AttributeGeneratorTests
     [Fact]
     public void GeneratesCompleteBoundedAttributesDeterministicallyAndCalculatesOvrFromRoleWeights()
     {
-        var calculator = new OvrCalculator(_profiles);
+        var calculator = new OvrCalculator(_profiles, _parameters.PositionalFamiliarity);
         var generator = new AttributeGenerator(_parameters.AttributeGeneration, calculator);
         var firstRng = new Pcg32(20_200, 91);
         var secondRng = new Pcg32(20_200, 91);
@@ -34,7 +34,7 @@ public sealed class AttributeGeneratorTests
     [Fact]
     public void HigherDivisionLevelAndReputationShiftTheConfiguredMeanInExpectedDirections()
     {
-        var generator = new AttributeGenerator(_parameters.AttributeGeneration, new OvrCalculator(_profiles));
+        var generator = new AttributeGenerator(_parameters.AttributeGeneration, new OvrCalculator(_profiles, _parameters.PositionalFamiliarity));
         var lowDivisionTotal = 0.0;
         var highDivisionTotal = 0.0;
         var lowRepTotal = 0.0;
@@ -60,7 +60,7 @@ public sealed class AttributeGeneratorTests
     [Fact]
     public void RejectsInvalidGenerationInputs()
     {
-        var generator = new AttributeGenerator(_parameters.AttributeGeneration, new OvrCalculator(_profiles));
+        var generator = new AttributeGenerator(_parameters.AttributeGeneration, new OvrCalculator(_profiles, _parameters.PositionalFamiliarity));
         var rng = new Pcg32(1, 2);
         Assert.Throws<ArgumentOutOfRangeException>(() => generator.Generate(0, 50, 24, Role.Goalkeeper, ref rng));
         Assert.Throws<ArgumentOutOfRangeException>(() => generator.Generate(1, 101, 24, Role.Goalkeeper, ref rng));

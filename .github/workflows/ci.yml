@@ -21,6 +21,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Set up Python for SQLite schema checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
       - name: Restore
         run: dotnet restore BoardroomTouchline.sln
 
@@ -29,6 +34,9 @@ jobs:
 
       - name: Test
         run: dotnet test BoardroomTouchline.sln --no-build --no-restore --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Test SQLite schema and constraints
+        run: python -m unittest discover -s tests/schema -v
 
       - name: Verify formatting
         run: dotnet format BoardroomTouchline.sln --verify-no-changes --no-restore

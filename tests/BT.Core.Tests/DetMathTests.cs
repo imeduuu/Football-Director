@@ -38,6 +38,25 @@ public sealed class DetMathTests
     }
 
     [Fact]
+    public void SqrtKeepsRelativeAccuracyForSubnormalInputs()
+    {
+        var inputs = new[]
+        {
+            double.Epsilon,
+            double.Epsilon * 2.0,
+            double.Epsilon * 1024.0,
+            2.2250738585072014e-308 * 0.5
+        };
+
+        foreach (var input in inputs)
+        {
+            var expected = Math.Sqrt(input);
+            var actual = DetMath.Sqrt(input);
+            Assert.InRange(Math.Abs(actual / expected - 1.0), 0.0, 2e-15);
+        }
+    }
+
+    [Fact]
     public void RejectsValuesOutsideDocumentedDomains()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => DetMath.Ln(0.0));

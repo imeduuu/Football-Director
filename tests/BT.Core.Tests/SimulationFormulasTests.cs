@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using BT.Core;
 using BT.Core.Sim;
 using Xunit;
 
@@ -43,12 +45,13 @@ public sealed class SimulationFormulasTests
     [Fact]
     public void ExpectedPointsStayInGddRangeAndMatchEqualReputationExamples()
     {
-        Assert.Equal(1.54, SimulationFormulas.ExpectedPoints(50.0, 50.0, true), 2);
-        Assert.Equal(1.20, SimulationFormulas.ExpectedPoints(50.0, 50.0, false), 2);
+        var parameters = ParamsConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "params.json")).ExpectedPoints;
+        Assert.Equal(1.54, SimulationFormulas.ExpectedPoints(50.0, 50.0, true, parameters), 2);
+        Assert.Equal(1.20, SimulationFormulas.ExpectedPoints(50.0, 50.0, false, parameters), 2);
         for (var club = 0; club <= 100; club++)
             for (var rival = 0; rival <= 100; rival++)
                 foreach (var home in new[] { false, true })
-                    Assert.InRange(SimulationFormulas.ExpectedPoints(club, rival, home), 0.37, 2.37);
+                    Assert.InRange(SimulationFormulas.ExpectedPoints(club, rival, home, parameters), 0.37, 2.37);
     }
 
     [Fact]

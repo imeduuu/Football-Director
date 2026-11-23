@@ -21,7 +21,8 @@ public sealed class ParamsConfig
 
     private ParamsConfig(string version, FitnessParams fitness, MoraleParams morale,
         IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
-        AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration)
+        AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration,
+        ExpectedPointsParams expectedPoints, PositionalFamiliarityParams positionalFamiliarity)
     {
         Version = version;
         Fitness = fitness;
@@ -30,6 +31,8 @@ public sealed class ParamsConfig
         BoardConfidence = boardConfidence;
         AttributeGeneration = attributeGeneration;
         SquadGeneration = squadGeneration;
+        ExpectedPoints = expectedPoints;
+        PositionalFamiliarity = positionalFamiliarity;
     }
 
     public string Version { get; }
@@ -39,6 +42,8 @@ public sealed class ParamsConfig
     public BoardConfidenceParams BoardConfidence { get; }
     public AttributeGenerationParams AttributeGeneration { get; }
     public SquadGenerationParams SquadGeneration { get; }
+    public ExpectedPointsParams ExpectedPoints { get; }
+    public PositionalFamiliarityParams PositionalFamiliarity { get; }
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
         new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
@@ -78,7 +83,7 @@ public sealed class ParamsConfig
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$");
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -86,6 +91,8 @@ public sealed class ParamsConfig
                 EnsureRequiredProperties(band, "maximumAge", "factor");
             EnsureRequiredProperties(root.GetProperty("boardConfidence"), "minimum", "maximum", "initial",
                 "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum");
+            EnsureRequiredProperties(root.GetProperty("expectedPoints"), "homeAdvantage", "reputationScale", "basePoints", "winPoints");
+            EnsureRequiredProperties(root.GetProperty("positionalFamiliarity"), "minimum", "maximum", "primary", "secondaryHigh", "secondaryLow");
             var generation = root.GetProperty("attributeGeneration");
             var squad = root.GetProperty("squadGeneration");
             EnsureRequiredProperties(squad, "minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles");
@@ -132,7 +139,11 @@ public sealed class ParamsConfig
             new BoardConfidenceParams(dto.BoardConfidence!.Minimum, dto.BoardConfidence.Maximum,
                 dto.BoardConfidence.Initial, dto.BoardConfidence.LeagueWeight, dto.BoardConfidence.CupWeight,
                 dto.BoardConfidence.FriendlyWeight, dto.BoardConfidence.MatchChangeMinimum,
-                dto.BoardConfidence.MatchChangeMaximum), generationParams, squadGeneration);
+                dto.BoardConfidence.MatchChangeMaximum), generationParams, squadGeneration,
+            new ExpectedPointsParams(dto.ExpectedPoints!.HomeAdvantage, dto.ExpectedPoints.ReputationScale,
+                dto.ExpectedPoints.BasePoints, dto.ExpectedPoints.WinPoints),
+            new PositionalFamiliarityParams(dto.PositionalFamiliarity!.Minimum, dto.PositionalFamiliarity.Maximum,
+                dto.PositionalFamiliarity.Primary, dto.PositionalFamiliarity.SecondaryHigh, dto.PositionalFamiliarity.SecondaryLow));
     }
 
     private static SquadGenerationParams ParseSquadGeneration(JsonElement element)
@@ -156,6 +167,21 @@ public sealed class ParamsConfig
         }
         if (profiles.Count != Enum.GetValues(typeof(SquadProfile)).Length)
             throw new InvalidDataException("Invalid parameter configuration: squadGeneration.profiles must define every profile.");
+        var compositions = new Dictionary<int, SquadComposition>();
+        foreach (var item in element.GetProperty("compositions").EnumerateArray())
+        {
+            var size = item.GetProperty("size").GetInt32();
+            var composition = new SquadComposition(item.GetProperty("goalkeepers").GetInt32(),
+                item.GetProperty("defenders").GetInt32(), item.GetProperty("midfielders").GetInt32(),
+                item.GetProperty("forwards").GetInt32());
+            if (size < 11 || composition.Goalkeepers < 1 || composition.Defenders < 2 ||
+                composition.Midfielders < 2 || composition.Forwards < 2 ||
+                composition.Goalkeepers + composition.Defenders + composition.Midfielders + composition.Forwards != size ||
+                !compositions.TryAdd(size, composition))
+                throw new InvalidDataException($"Invalid parameter configuration: invalid or duplicate squad composition for size {size}.");
+        }
+        if (compositions.Count == 0)
+            throw new InvalidDataException("Invalid parameter configuration: squadGeneration.compositions must not be empty.");
         var coverage = element.GetProperty("minimumBandCoverage").GetDouble();
         var attempts = element.GetProperty("maxAttempts").GetInt32();
         var reputationShift = element.GetProperty("reputationMeanShift").GetDouble();
@@ -169,7 +195,7 @@ public sealed class ParamsConfig
             !double.IsFinite(referenceOvr) || referenceOvr is < 1 or > 99)
             throw new InvalidDataException("Invalid parameter configuration: squad generation tuning values are invalid.");
         return new SquadGenerationParams(coverage, attempts, reputationShift, divisionShift,
-            referenceReputation, referenceDivision, referenceOvr, profiles);
+            referenceReputation, referenceDivision, referenceOvr, profiles, compositions);
     }
 
     private static void Validate(Dto dto)
@@ -180,6 +206,8 @@ public sealed class ParamsConfig
         Require(dto.AgeRecoveryFactors is { Count: > 0 }, "ageRecoveryFactors must not be empty.");
         Require(dto.BoardConfidence is not null, "boardConfidence is required.");
         Require(dto.AttributeGeneration is not null, "attributeGeneration is required.");
+        Require(dto.ExpectedPoints is not null, "expectedPoints is required.");
+        Require(dto.PositionalFamiliarity is not null, "positionalFamiliarity is required.");
 
         var fitness = dto.Fitness!;
         var morale = dto.Morale!;
@@ -216,6 +244,22 @@ public sealed class ParamsConfig
             confidence.MatchChangeMinimum <= confidence.MatchChangeMaximum, "board confidence match change bounds are invalid.");
 
         ValidateAttributeGeneration(dto.AttributeGeneration!);
+        var expectedPoints = dto.ExpectedPoints!;
+        Require(double.IsFinite(expectedPoints.HomeAdvantage) && expectedPoints.HomeAdvantage >= 0,
+            "expectedPoints.homeAdvantage must be finite and non-negative.");
+        Require(double.IsFinite(expectedPoints.ReputationScale) && expectedPoints.ReputationScale > 0,
+            "expectedPoints.reputationScale must be finite and positive.");
+        Require(double.IsFinite(expectedPoints.BasePoints) && expectedPoints.BasePoints >= 0,
+            "expectedPoints.basePoints must be finite and non-negative.");
+        Require(double.IsFinite(expectedPoints.WinPoints) && expectedPoints.WinPoints >= 0,
+            "expectedPoints.winPoints must be finite and non-negative.");
+        var familiarity = dto.PositionalFamiliarity!;
+        Require(familiarity.Minimum is >= 0 and <= 100 && familiarity.Maximum is >= 0 and <= 100 && familiarity.Minimum <= familiarity.Maximum,
+            "positionalFamiliarity bounds must be ordered within [0,100].");
+        Require(familiarity.Primary >= familiarity.Minimum && familiarity.Primary <= familiarity.Maximum &&
+            familiarity.SecondaryHigh >= familiarity.Minimum && familiarity.SecondaryHigh <= familiarity.Maximum &&
+            familiarity.SecondaryLow >= familiarity.Minimum && familiarity.SecondaryLow <= familiarity.Maximum,
+            "positional familiarity values must fit the configured bounds.");
     }
 
     private static void ValidateAttributeGeneration(AttributeGenerationDto generation)
@@ -359,6 +403,8 @@ public sealed class ParamsConfig
         public BoardConfidenceDto? BoardConfidence { get; set; }
         public AttributeGenerationDto? AttributeGeneration { get; set; }
         public JsonElement SquadGeneration { get; set; }
+        public ExpectedPointsDto? ExpectedPoints { get; set; }
+        public PositionalFamiliarityDto? PositionalFamiliarity { get; set; }
     }
 
     private sealed class FitnessDto { public double Minimum { get; set; } public double Maximum { get; set; } public double PreseasonTarget { get; set; } }
@@ -374,6 +420,21 @@ public sealed class ParamsConfig
         public double FriendlyWeight { get; set; }
         public double MatchChangeMinimum { get; set; }
         public double MatchChangeMaximum { get; set; }
+    }
+    private sealed class ExpectedPointsDto
+    {
+        public double HomeAdvantage { get; set; }
+        public double ReputationScale { get; set; }
+        public double BasePoints { get; set; }
+        public double WinPoints { get; set; }
+    }
+    private sealed class PositionalFamiliarityDto
+    {
+        public int Minimum { get; set; }
+        public int Maximum { get; set; }
+        public int Primary { get; set; }
+        public int SecondaryHigh { get; set; }
+        public int SecondaryLow { get; set; }
     }
     private sealed class AttributeGenerationDto
     {
@@ -416,8 +477,8 @@ public sealed class SquadGenerationParams
 {
     internal SquadGenerationParams(double minimumBandCoverage, int maxAttempts, double reputationMeanShift,
         double divisionMeanShift, double referenceReputation, int referenceDivisionLevel, double referenceOvr,
-        IReadOnlyDictionary<SquadProfile, SquadProfileBands> profiles)
-    { MinimumBandCoverage = minimumBandCoverage; MaxAttempts = maxAttempts; ReputationMeanShift = reputationMeanShift; DivisionMeanShift = divisionMeanShift; ReferenceReputation = referenceReputation; ReferenceDivisionLevel = referenceDivisionLevel; ReferenceOvr = referenceOvr; Profiles = new ReadOnlyDictionary<SquadProfile, SquadProfileBands>(new Dictionary<SquadProfile, SquadProfileBands>(profiles)); }
+        IReadOnlyDictionary<SquadProfile, SquadProfileBands> profiles, IReadOnlyDictionary<int, SquadComposition> compositions)
+    { MinimumBandCoverage = minimumBandCoverage; MaxAttempts = maxAttempts; ReputationMeanShift = reputationMeanShift; DivisionMeanShift = divisionMeanShift; ReferenceReputation = referenceReputation; ReferenceDivisionLevel = referenceDivisionLevel; ReferenceOvr = referenceOvr; Profiles = new ReadOnlyDictionary<SquadProfile, SquadProfileBands>(new Dictionary<SquadProfile, SquadProfileBands>(profiles)); Compositions = new ReadOnlyDictionary<int, SquadComposition>(new Dictionary<int, SquadComposition>(compositions)); }
     public double MinimumBandCoverage { get; }
     public int MaxAttempts { get; }
     public double ReputationMeanShift { get; }
@@ -426,6 +487,16 @@ public sealed class SquadGenerationParams
     public int ReferenceDivisionLevel { get; }
     public double ReferenceOvr { get; }
     public IReadOnlyDictionary<SquadProfile, SquadProfileBands> Profiles { get; }
+    public IReadOnlyDictionary<int, SquadComposition> Compositions { get; }
+}
+public sealed class SquadComposition
+{
+    internal SquadComposition(int goalkeepers, int defenders, int midfielders, int forwards)
+    { Goalkeepers = goalkeepers; Defenders = defenders; Midfielders = midfielders; Forwards = forwards; }
+    public int Goalkeepers { get; }
+    public int Defenders { get; }
+    public int Midfielders { get; }
+    public int Forwards { get; }
 }
 public sealed class SquadProfileBands
 {
@@ -474,6 +545,25 @@ public sealed class BoardConfidenceParams
     public double FriendlyWeight { get; }
     public double MatchChangeMinimum { get; }
     public double MatchChangeMaximum { get; }
+}
+public sealed class ExpectedPointsParams
+{
+    internal ExpectedPointsParams(double homeAdvantage, double reputationScale, double basePoints, double winPoints)
+    { HomeAdvantage = homeAdvantage; ReputationScale = reputationScale; BasePoints = basePoints; WinPoints = winPoints; }
+    public double HomeAdvantage { get; }
+    public double ReputationScale { get; }
+    public double BasePoints { get; }
+    public double WinPoints { get; }
+}
+public sealed class PositionalFamiliarityParams
+{
+    internal PositionalFamiliarityParams(int minimum, int maximum, int primary, int secondaryHigh, int secondaryLow)
+    { Minimum = minimum; Maximum = maximum; Primary = primary; SecondaryHigh = secondaryHigh; SecondaryLow = secondaryLow; }
+    public int Minimum { get; }
+    public int Maximum { get; }
+    public int Primary { get; }
+    public int SecondaryHigh { get; }
+    public int SecondaryLow { get; }
 }
 public sealed class AttributeGenerationParams
 {

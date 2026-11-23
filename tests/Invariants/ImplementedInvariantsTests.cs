@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using BT.Core;
 using System.Linq;
 using BT.Core.Collections;
 using BT.Core.Rng;
@@ -19,6 +21,9 @@ internal static class Samples
 
 public sealed class ImplementedInvariantsTests
 {
+    private static readonly ExpectedPointsParams ExpectedPointsParameters = ParamsConfig.Load(
+        Path.Combine(AppContext.BaseDirectory, "config", "params.json")).ExpectedPoints;
+
     [Fact]
     public void ClampAlwaysReturnsAValueWithinItsBounds()
     {
@@ -39,7 +44,7 @@ public sealed class ImplementedInvariantsTests
             foreach (var rival in Samples.UnitValues.Take(32))
                 foreach (var home in new[] { false, true })
                 {
-                    var points = SimulationFormulas.ExpectedPoints(club * 100, rival * 100, home);
+                    var points = SimulationFormulas.ExpectedPoints(club * 100, rival * 100, home, ExpectedPointsParameters);
                     Assert.InRange(points, 0.37, 2.37);
                 }
     }

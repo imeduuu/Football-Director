@@ -113,7 +113,7 @@ public sealed class SquadGeneratorTests
 
     private SquadGenerator CreateGenerator()
     {
-        var ovrCalculator = new OvrCalculator(_profiles);
+        var ovrCalculator = new OvrCalculator(_profiles, _parameters.PositionalFamiliarity);
         return new SquadGenerator(new AttributeGenerator(_parameters.AttributeGeneration, ovrCalculator), ovrCalculator,
             _parameters.SquadGeneration);
     }

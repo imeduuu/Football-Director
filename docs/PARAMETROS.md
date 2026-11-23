@@ -2,6 +2,8 @@
 
 Inventario de constantes, rangos, fórmulas y reglas de prueba citados en las secciones solicitadas de [GDD v1.3](GDD_v1_3.md). `Cerrado` significa que el GDD presenta el valor como regla/invariante vigente; no implica que la implementación ya lo haya probado. La columna «Prueba que lo valida» reproduce el criterio especificado por el GDD. Si este no define un test, se indica expresamente.
 
+Los coeficientes de puntos esperados de la sección 3.4 están versionados bajo `expectedPoints` en [params.json](../config/params.json); los valores de familiaridad posicional están bajo `positionalFamiliarity`. Ambos se validan con [params.schema.json](../config/params.schema.json) y se exponen tipados por `ParamsConfig`.
+
 | nombre | valor | sección | unidad | estado | prueba que lo valida |
 |---|---|---:|---|---|---|
 | Confianza directiva inicial Cd | 60; dominio [0,100] | 3.4 | puntos | cerrado | Verificar inicialización y clamp tras cada partido oficial. |
@@ -31,6 +33,7 @@ Inventario de constantes, rangos, fórmulas y reglas de prueba citados en las se
 | Factor de cohesión FCOH | 0,97 + 0,06×C/100; rango teórico 0,97–1,03 | 4.8 | multiplicador | provisional | Tabla de equilibrio anterior; bono práctico máximo aproximado +1,4%; C=100 techo teórico +3%; rotación completa cuesta como máximo −0,6% vs normal. |
 | Relación individual Rij y factor FREL | Rij ∈ {−1,0,+1}; relación activa adyacente ±0,5% a ambos; FREL,i=1+clamp(0,005×ΣRij,−0,015,+0,015) | 4.8 | categoría / multiplicador | provisional | Verificar signos, adyacencia y tope por jugador ±1,5%; sin prueba de aceptación estadística indicada. |
 | Familiaridad inicial de rol | Frol ∈ [70,100]%; principal 100; secundaria 92 u 85 según editor; desconocida 70 | 5.1 | porcentaje | provisional | Verificar inicialización y correspondencia con multiplicador Mfam; desconocida equivale a penalización máxima de 30% indicada en §4.4. |
+| Composición de plantillas generadas | Tamaños 18, 19, 20, 21, 22 y 25; distribución por porteros/defensas/mediocampistas/delanteros en `config/params.json` | 20.2–20.3 | jugadores | provisional | Cargar y validar que los conteos sumen el tamaño, generar plantillas reproducibles y ejecutar invariantes mínimos/cobertura de las formaciones del Slice. |
 | Crecimiento por minutos en rol | +1,0 punto por 90 minutos, proporcional a minutos, ×Fadap; Fadap=clamp(ADA/70,0,6,1,3) | 5.1 | puntos/90 min | provisional | Probar proporcionalidad, límites de Fadap y acumulación sin superar 100. |
 | Crecimiento por entrenamiento individual de rol | +0,5 por día con ese rol como objetivo | 5.1 | puntos/día | provisional | Caso de entrenamiento con rol objetivo; comprobar cap 100. |
 | Penalización por cambios frecuentes de rol | Si cambia >3 veces en 10 partidos, crecimiento ×0,5 | 5.1 | multiplicador / partidos | provisional | Comparar crecimiento antes/después del umbral (>3 cambios en ventana de 10 partidos). |

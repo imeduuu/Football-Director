@@ -34,6 +34,14 @@ public sealed class ParamsConfigTests
         Assert.Equal(18, generation.Attributes.Count);
         Assert.Equal(75, config.Fitness.PreseasonTarget);
         Assert.Equal(60, config.BoardConfidence.Initial);
+        Assert.Equal(6, config.ExpectedPoints.HomeAdvantage);
+        Assert.Equal(40, config.ExpectedPoints.ReputationScale);
+        Assert.Equal(0.37, config.ExpectedPoints.BasePoints);
+        Assert.Equal(2, config.ExpectedPoints.WinPoints);
+        Assert.Equal(70, config.PositionalFamiliarity.Minimum);
+        Assert.Equal(100, config.PositionalFamiliarity.Primary);
+        Assert.Equal(92, config.PositionalFamiliarity.SecondaryHigh);
+        Assert.Equal(85, config.PositionalFamiliarity.SecondaryLow);
     }
 
     [Fact]
@@ -70,7 +78,7 @@ public sealed class ParamsConfigTests
     [Fact]
     public void RejectsDuplicateJsonPropertiesBeforeDeserialization()
     {
-        var json = File.ReadAllText(ParamsPath).Replace("\"version\": \"1.2.0\",", "\"version\": \"1.2.0\",\"version\": \"duplicate\",");
+        var json = File.ReadAllText(ParamsPath).Replace("\"version\": \"1.3.0\",", "\"version\": \"1.3.0\",\"version\": \"duplicate\",");
         var error = Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(json));
         Assert.Contains("duplicate property", error.Message);
     }
@@ -83,6 +91,22 @@ public sealed class ParamsConfigTests
     {
         var node = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
         node["attributeGeneration"]![property] = value;
+        Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
+    }
+
+    [Fact]
+    public void RejectsInvalidExpectedPointsConfiguration()
+    {
+        var node = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        node["expectedPoints"]!["reputationScale"] = 0;
+        Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
+    }
+
+    [Fact]
+    public void RejectsPositionalFamiliarityValuesOutsideConfiguredBounds()
+    {
+        var node = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        node["positionalFamiliarity"]!["secondaryLow"] = 60;
         Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
     }
 

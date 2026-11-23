@@ -10,17 +10,6 @@ public enum SquadProfile { Favorite, UpperHalf, LowerHalf, RelegationCandidate }
 /// <summary>Builds deterministic Slice and MVP squads with age and formation coverage constraints.</summary>
 public sealed class SquadGenerator
 {
-    private static readonly IReadOnlyDictionary<int, (int Goalkeepers, int Defenders, int Midfielders, int Forwards)> Sizes =
-        new Dictionary<int, (int, int, int, int)>
-        {
-            [18] = (2, 6, 6, 4),
-            [19] = (2, 6, 6, 5),
-            [20] = (3, 6, 6, 5),
-            [21] = (3, 6, 7, 5),
-            [22] = (3, 7, 7, 5),
-            [25] = (3, 7, 10, 5)
-        };
-
     private readonly AttributeGenerator _attributes;
     private readonly OvrCalculator _ovrCalculator;
     private readonly BT.Core.SquadGenerationParams _parameters;
@@ -39,8 +28,8 @@ public sealed class SquadGenerator
     public GeneratedSquad GenerateDetailed(int size, string clubId, int divisionLevel, double clubReputation,
         string nationality, SquadProfile profile, ulong seed, ulong sequence = 0)
     {
-        if (!Sizes.TryGetValue(size, out var composition))
-            throw new ArgumentOutOfRangeException(nameof(size), "Squad size must be 18–22 or 25.");
+        if (!_parameters.Compositions.TryGetValue(size, out var composition))
+            throw new ArgumentOutOfRangeException(nameof(size), "Squad size has no configured composition.");
         if (string.IsNullOrWhiteSpace(clubId)) throw new ArgumentException("A club id is required.", nameof(clubId));
         if (string.IsNullOrWhiteSpace(nationality)) throw new ArgumentException("A nationality is required.", nameof(nationality));
 
@@ -163,7 +152,7 @@ public sealed class SquadGenerator
             _ovrCalculator.Calculate(squad[paths[finalMask][index]], slot.Role, 100))).ToArray();
     }
 
-    private static List<Position> CreatePositions((int Goalkeepers, int Defenders, int Midfielders, int Forwards) c)
+    private static List<Position> CreatePositions(BT.Core.SquadComposition c)
     {
         var result = Enumerable.Repeat(Position.Goalkeeper, c.Goalkeepers).ToList();
         result.Add(Position.LeftBack);
@@ -210,7 +199,7 @@ public sealed class SquadGenerator
     };
 
     private static void ValidateSquad(IReadOnlyList<Player> squad, int expectedSize,
-        (int Goalkeepers, int Defenders, int Midfielders, int Forwards) c)
+        BT.Core.SquadComposition c)
     {
         if (squad.Count != expectedSize || squad.Select(x => x.Id).Distinct(StringComparer.Ordinal).Count() != expectedSize)
             throw new InvalidOperationException("Generated squad has an invalid size or duplicate player ids.");

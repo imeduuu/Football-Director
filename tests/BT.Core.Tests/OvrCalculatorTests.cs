@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using BT.Core;
 using BT.Core.Domain;
 using Xunit;
 using PlayerAttribute = BT.Core.Domain.Attribute;
@@ -14,7 +15,8 @@ public sealed class OvrCalculatorTests
     public OvrCalculatorTests()
     {
         var profiles = RoleProfiles.Load(Path.Combine(AppContext.BaseDirectory, "config", "roles.json"));
-        _calculator = new OvrCalculator(profiles);
+        var parameters = ParamsConfig.Load(Path.Combine(AppContext.BaseDirectory, "config", "params.json"));
+        _calculator = new OvrCalculator(profiles, parameters.PositionalFamiliarity);
     }
 
     [Fact]

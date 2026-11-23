@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BT.Core;
 
 namespace BT.Core.Sim;
 
@@ -51,13 +52,15 @@ public static class SimulationFormulas
     }
 
     /// <summary>Calculates expected match points from GDD 3.4 using the specified club and rival reputations.</summary>
-    public static double ExpectedPoints(double clubReputation, double rivalReputation, bool isHome)
+    public static double ExpectedPoints(double clubReputation, double rivalReputation, bool isHome,
+        ExpectedPointsParams parameters)
     {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
         EnsureFinite(clubReputation, nameof(clubReputation));
         EnsureFinite(rivalReputation, nameof(rivalReputation));
-        var d = clubReputation - rivalReputation + (isHome ? 6.0 : -6.0);
-        var s = 1.0 / (1.0 + DetMath.Pow(10.0, -d / 40.0));
-        return 0.37 + 2.0 * s;
+        var d = clubReputation - rivalReputation + (isHome ? parameters.HomeAdvantage : -parameters.HomeAdvantage);
+        var s = 1.0 / (1.0 + DetMath.Pow(10.0, -d / parameters.ReputationScale));
+        return parameters.BasePoints + parameters.WinPoints * s;
     }
 
     /// <summary>Updates a value with an exponential moving average; alpha is in [0,1].</summary>

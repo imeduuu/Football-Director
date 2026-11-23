@@ -16,6 +16,8 @@ public static class DetMath
     private const double PiOverTwoLo = 6.12323399573676603587e-17;
     private const double SqrtHalf = 0.707106781186547524400844362104849039;
     private const double SqrtTwo = 1.41421356237309504880168872420969808;
+    private const double SubnormalScale = 18014398509481984.0; // 2^54
+    private const double InverseSubnormalSqrtScale = 7.450580596923828125e-9; // 2^-27
 
     /// <summary>Natural logarithm for finite x &gt; 0. Maximum absolute error: 2e-14.</summary>
     public static double Ln(double x)
@@ -79,11 +81,18 @@ public static class DetMath
             throw new ArgumentOutOfRangeException(nameof(x), "Sqrt requires a finite nonnegative value.");
         if (x == 0.0) return x;
 
+        var scaleResult = false;
+        if (x < 2.2250738585072014e-308)
+        {
+            x *= SubnormalScale;
+            scaleResult = true;
+        }
+
         var bits = BitConverter.DoubleToInt64Bits(x);
         var guess = BitConverter.Int64BitsToDouble((bits >> 1) + 0x1ff8000000000000L);
         for (var i = 0; i < 7; i++)
             guess = 0.5 * (guess + x / guess);
-        return guess;
+        return scaleResult ? guess * InverseSubnormalSqrtScale : guess;
     }
 
     /// <summary>Sine for finite |x| &lt;= 64 radians. Maximum absolute error: 3e-14.</summary>

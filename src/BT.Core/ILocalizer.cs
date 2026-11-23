@@ -61,7 +61,7 @@ public sealed class JsonLocalizer : ILocalizer
     {
         var node = Resolve(key);
         if (node is not Dictionary<string, object?> forms) throw new InvalidOperationException($"Plural key '{key}' must contain forms such as 'one' and 'other'.");
-        var category = count == 1 ? "one" : count == 0 ? "zero" : "other";
+        var category = count == 0 && forms.ContainsKey("zero") ? "zero" : PluralCategory(Language, count);
         if (!forms.TryGetValue(category, out var template)) forms.TryGetValue("other", out template);
         if (template is not string text) throw new KeyNotFoundException($"Plural key '{key}' has no '{category}' or 'other' form.");
         var values = variables is null
@@ -70,6 +70,52 @@ public sealed class JsonLocalizer : ILocalizer
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         values["count"] = count;
         return Interpolate(text, values);
+    }
+
+    private static string PluralCategory(string language, decimal count)
+    {
+        var languageCode = language.Split('-')[0].ToLowerInvariant();
+        var integral = decimal.Truncate(count) == count;
+        var absolute = count < 0 ? -count : count;
+        var whole = integral ? decimal.ToInt64(absolute % 100) : -1;
+
+        if (languageCode == "ar" && integral)
+        {
+            if (absolute == 0) return "zero";
+            if (absolute == 1) return "one";
+            if (absolute == 2) return "two";
+            if (whole is >= 3 and <= 10) return "few";
+            if (whole is >= 11 and <= 99) return "many";
+            return "other";
+        }
+
+        if ((languageCode is "ru" or "uk" or "be") && integral)
+        {
+            var mod10 = (int)(absolute % 10);
+            var mod100 = (int)(absolute % 100);
+            if (mod10 == 1 && mod100 != 11) return "one";
+            if (mod10 is >= 2 and <= 4 && (mod100 < 12 || mod100 > 14)) return "few";
+            return "many";
+        }
+
+        if (languageCode == "pl" && integral)
+        {
+            var mod10 = (int)(absolute % 10);
+            var mod100 = (int)(absolute % 100);
+            if (absolute == 1) return "one";
+            if (mod10 is >= 2 and <= 4 && (mod100 < 12 || mod100 > 14)) return "few";
+            return "many";
+        }
+
+        if (languageCode is "cs" or "sk")
+        {
+            if (count == 1) return "one";
+            if (integral && absolute is >= 2 and <= 4) return "few";
+            return integral ? "other" : "many";
+        }
+
+        if ((languageCode is "fr" or "pt") && (absolute is 0 or 1)) return "one";
+        return count == 1 ? "one" : "other";
     }
 
     public string FormatNumber(decimal value, string? format = null) => value.ToString(format ?? "N", Culture);

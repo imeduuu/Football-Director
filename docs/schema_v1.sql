@@ -204,13 +204,139 @@ CREATE TABLE match_events (
 CREATE INDEX ix_match_events_player ON match_events(player_id, match_id);
 CREATE INDEX ix_match_events_club_type ON match_events(club_id, event_type, match_id);
 
+-- Enforce club participation and Slice roster ownership at the persistence boundary.
+CREATE TRIGGER fixtures_no_club_twice_insert
+BEFORE INSERT ON fixtures
+WHEN EXISTS (
+    SELECT 1 FROM fixtures f
+    WHERE f.season_id = NEW.season_id AND f.round_no = NEW.round_no
+      AND (f.home_club_id IN (NEW.home_club_id, NEW.away_club_id)
+           OR f.away_club_id IN (NEW.home_club_id, NEW.away_club_id))
+)
+BEGIN
+    SELECT RAISE(ABORT, 'a club cannot play more than once in a round');
+END;
+
+CREATE TRIGGER fixtures_no_club_twice_update
+BEFORE UPDATE OF season_id, round_no, home_club_id, away_club_id ON fixtures
+WHEN EXISTS (
+    SELECT 1 FROM fixtures f
+    WHERE f.fixture_id <> OLD.fixture_id AND f.season_id = NEW.season_id AND f.round_no = NEW.round_no
+      AND (f.home_club_id IN (NEW.home_club_id, NEW.away_club_id)
+           OR f.away_club_id IN (NEW.home_club_id, NEW.away_club_id))
+)
+BEGIN
+    SELECT RAISE(ABORT, 'a club cannot play more than once in a round');
+END;
+
+CREATE TRIGGER fixtures_insert_not_played
+BEFORE INSERT ON fixtures
+WHEN NEW.status = 'played'
+BEGIN
+    SELECT RAISE(ABORT, 'fixtures become played only after a match is inserted');
+END;
+
+CREATE TRIGGER fixtures_preserve_lineups_on_club_change
+BEFORE UPDATE OF home_club_id, away_club_id ON fixtures
+WHEN EXISTS (
+    SELECT 1 FROM lineups l WHERE l.fixture_id = OLD.fixture_id
+      AND l.club_id NOT IN (NEW.home_club_id, NEW.away_club_id)
+) OR EXISTS (
+    SELECT 1 FROM matches m WHERE m.fixture_id = OLD.fixture_id
+      AND (m.home_club_id <> NEW.home_club_id OR m.away_club_id <> NEW.away_club_id)
+)
+BEGIN
+    SELECT RAISE(ABORT, 'fixture club changes conflict with saved lineups or match');
+END;
+
+CREATE TRIGGER lineups_validate_insert
+BEFORE INSERT ON lineups
+WHEN NOT EXISTS (
+        SELECT 1 FROM fixtures f
+        WHERE f.fixture_id = NEW.fixture_id
+          AND NEW.club_id IN (f.home_club_id, f.away_club_id)
+    ) OR NOT EXISTS (
+        SELECT 1 FROM players p WHERE p.player_id = NEW.player_id AND p.club_id = NEW.club_id
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'lineup club, fixture, and player ownership must agree');
+END;
+
+CREATE TRIGGER lineups_validate_update
+BEFORE UPDATE OF fixture_id, club_id, player_id ON lineups
+WHEN NOT EXISTS (
+        SELECT 1 FROM fixtures f
+        WHERE f.fixture_id = NEW.fixture_id
+          AND NEW.club_id IN (f.home_club_id, f.away_club_id)
+    ) OR NOT EXISTS (
+        SELECT 1 FROM players p WHERE p.player_id = NEW.player_id AND p.club_id = NEW.club_id
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'lineup club, fixture, and player ownership must agree');
+END;
+
+CREATE TRIGGER matches_validate_fixture_insert
+BEFORE INSERT ON matches
+WHEN NOT EXISTS (
+    SELECT 1 FROM fixtures f WHERE f.fixture_id = NEW.fixture_id
+      AND f.home_club_id = NEW.home_club_id AND f.away_club_id = NEW.away_club_id
+)
+BEGIN
+    SELECT RAISE(ABORT, 'match clubs must match its fixture');
+END;
+
+CREATE TRIGGER matches_validate_fixture_update
+BEFORE UPDATE OF fixture_id, home_club_id, away_club_id ON matches
+WHEN NOT EXISTS (
+    SELECT 1 FROM fixtures f WHERE f.fixture_id = NEW.fixture_id
+      AND f.home_club_id = NEW.home_club_id AND f.away_club_id = NEW.away_club_id
+)
+BEGIN
+    SELECT RAISE(ABORT, 'match clubs must match its fixture');
+END;
+
+CREATE TRIGGER match_events_validate_participant_insert
+BEFORE INSERT ON match_events
+WHEN NOT EXISTS (
+        SELECT 1 FROM matches m WHERE m.match_id = NEW.match_id
+          AND NEW.club_id IN (m.home_club_id, m.away_club_id)
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'match event club must be a side in the match');
+END;
+
+CREATE TRIGGER match_events_validate_participant_update
+BEFORE UPDATE OF match_id, club_id, player_id ON match_events
+WHEN NOT EXISTS (
+        SELECT 1 FROM matches m WHERE m.match_id = NEW.match_id
+          AND NEW.club_id IN (m.home_club_id, m.away_club_id)
+    )
+BEGIN
+    SELECT RAISE(ABORT, 'match event club must be a side in the match');
+END;
+
+CREATE TRIGGER fixtures_mark_played_after_match
+AFTER INSERT ON matches
+BEGIN
+    UPDATE fixtures SET status = 'played' WHERE fixture_id = NEW.fixture_id;
+END;
+
+CREATE TRIGGER fixtures_require_match_before_played
+BEFORE UPDATE OF status ON fixtures
+WHEN NEW.status = 'played' AND NOT EXISTS (
+    SELECT 1 FROM matches m WHERE m.fixture_id = NEW.fixture_id
+)
+BEGIN
+    SELECT RAISE(ABORT, 'played fixtures require a persisted match');
+END;
+
+CREATE TRIGGER fixtures_reopen_after_match_delete
+AFTER DELETE ON matches
+BEGIN
+    UPDATE fixtures SET status = 'scheduled' WHERE fixture_id = OLD.fixture_id;
+END;
+
 COMMIT;
 
--- Relaciones que SQLite CHECK/FK no pueden expresar sin triggers:
--- * match home/away clubs deben coincidir exactamente con el fixture asociado.
--- * lineups.club_id debe ser uno de los dos clubes del fixture y el jugador debe
---   pertenecer a ese club en este Slice (sin préstamos en el alcance actual).
--- * un fixture 'played' debe tener un match y un fixture pendiente no debe tenerlo.
--- * standings debe regenerarse/actualizarse en la misma transacción que el cierre
---   de jornada; las estadísticas no deben editarse como fuente independiente.
--- La capa de aplicación valida estas condiciones antes de confirmar la transacción.
+-- standings se recalcula/actualiza en la misma transacción que el cierre de jornada;
+-- la capa de aplicación debe confirmar toda la operación de jornada en una sola transacción.

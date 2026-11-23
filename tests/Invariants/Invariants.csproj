@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BT.Core\BT.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\config\params.json" Link="config\params.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

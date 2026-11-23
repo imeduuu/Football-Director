@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "squadGeneration": {
     "minimumBandCoverage": 0.8,
     "maxAttempts": 40,
@@ -8,6 +8,14 @@
     "referenceReputation": 50.5,
     "referenceDivisionLevel": 2,
     "referenceOvr": 60,
+    "compositions": [
+      { "size": 18, "goalkeepers": 2, "defenders": 6, "midfielders": 6, "forwards": 4 },
+      { "size": 19, "goalkeepers": 2, "defenders": 6, "midfielders": 6, "forwards": 5 },
+      { "size": 20, "goalkeepers": 3, "defenders": 6, "midfielders": 6, "forwards": 5 },
+      { "size": 21, "goalkeepers": 3, "defenders": 6, "midfielders": 7, "forwards": 5 },
+      { "size": 22, "goalkeepers": 3, "defenders": 7, "midfielders": 7, "forwards": 5 },
+      { "size": 25, "goalkeepers": 3, "defenders": 7, "midfielders": 10, "forwards": 5 }
+    ],
     "profiles": [
       { "name": "Favorite", "meanMinimum": 68, "meanMaximum": 72, "starterMinimum": 70, "starterMaximum": 76, "benchMinimum": 62, "benchMaximum": 70 },
       { "name": "UpperHalf", "meanMinimum": 63, "meanMaximum": 68, "starterMinimum": 65, "starterMaximum": 71, "benchMinimum": 58, "benchMaximum": 66 },
@@ -27,6 +35,19 @@
     "minimum": 0, "maximum": 100, "initial": 60,
     "leagueWeight": 2.0, "cupWeight": 1.2, "friendlyWeight": 0,
     "matchChangeMinimum": -8, "matchChangeMaximum": 8
+  },
+  "expectedPoints": {
+    "homeAdvantage": 6,
+    "reputationScale": 40,
+    "basePoints": 0.37,
+    "winPoints": 2.0
+  },
+  "positionalFamiliarity": {
+    "minimum": 70,
+    "maximum": 100,
+    "primary": 100,
+    "secondaryHigh": 92,
+    "secondaryLow": 85
   },
   "attributeGeneration": {
     "minimum": 1,
