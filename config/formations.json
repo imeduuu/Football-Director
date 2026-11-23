@@ -1,0 +1,222 @@
+﻿{
+  "version": "1.0.0",
+  "coordinateSystem": {
+    "minimum": 0,
+    "maximum": 100,
+    "x": "team-left-to-right",
+    "y": "own-goal-to-opponent-goal"
+  },
+  "validator": {
+    "pointsPerFormation": 11,
+    "goalkeepersPerFormation": 1,
+    "coordinateMinimum": 0,
+    "coordinateMaximum": 100
+  },
+  "sliceActiveFormations": ["4-4-2", "4-3-3"],
+  "formations": [
+    {
+      "id": "4-3-3",
+      "activeInSlice": true,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "CentralMidfielder", "x": 30, "y": 48 },
+        { "position": "CentralMidfielder", "x": 50, "y": 44 },
+        { "position": "CentralMidfielder", "x": 70, "y": 48 },
+        { "position": "LeftWinger", "x": 18, "y": 76 },
+        { "position": "Striker", "x": 50, "y": 82 },
+        { "position": "RightWinger", "x": 82, "y": 76 }
+      ]
+    },
+    {
+      "id": "4-4-2",
+      "activeInSlice": true,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "LeftWinger", "x": 15, "y": 48 },
+        { "position": "CentralMidfielder", "x": 40, "y": 46 },
+        { "position": "CentralMidfielder", "x": 60, "y": 46 },
+        { "position": "RightWinger", "x": 85, "y": 48 },
+        { "position": "Striker", "x": 40, "y": 78 },
+        { "position": "Striker", "x": 60, "y": 78 }
+      ]
+    },
+    {
+      "id": "4-2-3-1",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "DefensiveMidfielder", "x": 40, "y": 42 },
+        { "position": "DefensiveMidfielder", "x": 60, "y": 42 },
+        { "position": "LeftWinger", "x": 18, "y": 62 },
+        { "position": "AttackingMidfielder", "x": 50, "y": 64 },
+        { "position": "RightWinger", "x": 82, "y": 62 },
+        { "position": "Striker", "x": 50, "y": 82 }
+      ]
+    },
+    {
+      "id": "3-5-2",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "CentreBack", "x": 25, "y": 22 },
+        { "position": "CentreBack", "x": 50, "y": 20 },
+        { "position": "CentreBack", "x": 75, "y": 22 },
+        { "position": "LeftWinger", "x": 10, "y": 48 },
+        { "position": "CentralMidfielder", "x": 35, "y": 45 },
+        { "position": "CentralMidfielder", "x": 50, "y": 42 },
+        { "position": "CentralMidfielder", "x": 65, "y": 45 },
+        { "position": "RightWinger", "x": 90, "y": 48 },
+        { "position": "Striker", "x": 40, "y": 78 },
+        { "position": "Striker", "x": 60, "y": 78 }
+      ]
+    },
+    {
+      "id": "5-3-2",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 8, "y": 26 },
+        { "position": "CentreBack", "x": 30, "y": 22 },
+        { "position": "CentreBack", "x": 50, "y": 20 },
+        { "position": "CentreBack", "x": 70, "y": 22 },
+        { "position": "RightBack", "x": 92, "y": 26 },
+        { "position": "CentralMidfielder", "x": 32, "y": 47 },
+        { "position": "CentralMidfielder", "x": 50, "y": 43 },
+        { "position": "CentralMidfielder", "x": 68, "y": 47 },
+        { "position": "Striker", "x": 40, "y": 78 },
+        { "position": "Striker", "x": 60, "y": 78 }
+      ]
+    },
+    {
+      "id": "4-1-4-1",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "DefensiveMidfielder", "x": 50, "y": 40 },
+        { "position": "LeftWinger", "x": 15, "y": 57 },
+        { "position": "CentralMidfielder", "x": 38, "y": 55 },
+        { "position": "CentralMidfielder", "x": 62, "y": 55 },
+        { "position": "RightWinger", "x": 85, "y": 57 },
+        { "position": "Striker", "x": 50, "y": 80 }
+      ]
+    },
+    {
+      "id": "4-3-2-1",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "CentralMidfielder", "x": 35, "y": 45 },
+        { "position": "CentralMidfielder", "x": 50, "y": 42 },
+        { "position": "CentralMidfielder", "x": 65, "y": 45 },
+        { "position": "AttackingMidfielder", "x": 38, "y": 64 },
+        { "position": "AttackingMidfielder", "x": 62, "y": 64 },
+        { "position": "Striker", "x": 50, "y": 82 }
+      ]
+    },
+    {
+      "id": "4-3-1-2",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "CentralMidfielder", "x": 35, "y": 45 },
+        { "position": "CentralMidfielder", "x": 50, "y": 42 },
+        { "position": "CentralMidfielder", "x": 65, "y": 45 },
+        { "position": "AttackingMidfielder", "x": 50, "y": 63 },
+        { "position": "Striker", "x": 40, "y": 79 },
+        { "position": "Striker", "x": 60, "y": 79 }
+      ]
+    },
+    {
+      "id": "3-4-3",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "CentreBack", "x": 25, "y": 22 },
+        { "position": "CentreBack", "x": 50, "y": 20 },
+        { "position": "CentreBack", "x": 75, "y": 22 },
+        { "position": "LeftWinger", "x": 10, "y": 48 },
+        { "position": "CentralMidfielder", "x": 37, "y": 45 },
+        { "position": "CentralMidfielder", "x": 63, "y": 45 },
+        { "position": "RightWinger", "x": 90, "y": 48 },
+        { "position": "LeftWinger", "x": 20, "y": 76 },
+        { "position": "Striker", "x": 50, "y": 82 },
+        { "position": "RightWinger", "x": 80, "y": 76 }
+      ]
+    },
+    {
+      "id": "3-4-1-2",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "CentreBack", "x": 25, "y": 22 },
+        { "position": "CentreBack", "x": 50, "y": 20 },
+        { "position": "CentreBack", "x": 75, "y": 22 },
+        { "position": "LeftWinger", "x": 10, "y": 48 },
+        { "position": "CentralMidfielder", "x": 37, "y": 45 },
+        { "position": "CentralMidfielder", "x": 63, "y": 45 },
+        { "position": "RightWinger", "x": 90, "y": 48 },
+        { "position": "AttackingMidfielder", "x": 50, "y": 64 },
+        { "position": "Striker", "x": 40, "y": 80 },
+        { "position": "Striker", "x": 60, "y": 80 }
+      ]
+    },
+    {
+      "id": "5-4-1",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 8, "y": 26 },
+        { "position": "CentreBack", "x": 30, "y": 22 },
+        { "position": "CentreBack", "x": 50, "y": 20 },
+        { "position": "CentreBack", "x": 70, "y": 22 },
+        { "position": "RightBack", "x": 92, "y": 26 },
+        { "position": "LeftWinger", "x": 12, "y": 52 },
+        { "position": "CentralMidfielder", "x": 38, "y": 48 },
+        { "position": "CentralMidfielder", "x": 62, "y": 48 },
+        { "position": "RightWinger", "x": 88, "y": 52 },
+        { "position": "Striker", "x": 50, "y": 80 }
+      ]
+    },
+    {
+      "id": "4-5-1",
+      "activeInSlice": false,
+      "points": [
+        { "position": "Goalkeeper", "x": 50, "y": 5 },
+        { "position": "LeftBack", "x": 15, "y": 25 },
+        { "position": "CentreBack", "x": 38, "y": 22 },
+        { "position": "CentreBack", "x": 62, "y": 22 },
+        { "position": "RightBack", "x": 85, "y": 25 },
+        { "position": "LeftWinger", "x": 12, "y": 52 },
+        { "position": "CentralMidfielder", "x": 32, "y": 48 },
+        { "position": "CentralMidfielder", "x": 50, "y": 45 },
+        { "position": "CentralMidfielder", "x": 68, "y": 48 },
+        { "position": "RightWinger", "x": 88, "y": 52 },
+        { "position": "Striker", "x": 50, "y": 80 }
+      ]
+    }
+  ]
+}
