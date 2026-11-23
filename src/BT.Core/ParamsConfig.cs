@@ -77,7 +77,7 @@ public sealed class ParamsConfig
         try
         {
             using var document = JsonDocument.Parse(json);
-            RejectDuplicateProperties(document.RootElement, "$" );
+            RejectDuplicateProperties(document.RootElement, "$");
             EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
@@ -366,27 +366,46 @@ public sealed class ParamsConfig
     private sealed class AgeRecoveryDto { public int? MaximumAge { get; set; } public double Factor { get; set; } }
     private sealed class BoardConfidenceDto
     {
-        public double Minimum { get; set; } public double Maximum { get; set; } public double Initial { get; set; }
-        public double LeagueWeight { get; set; } public double CupWeight { get; set; } public double FriendlyWeight { get; set; }
-        public double MatchChangeMinimum { get; set; } public double MatchChangeMaximum { get; set; }
+        public double Minimum { get; set; }
+        public double Maximum { get; set; }
+        public double Initial { get; set; }
+        public double LeagueWeight { get; set; }
+        public double CupWeight { get; set; }
+        public double FriendlyWeight { get; set; }
+        public double MatchChangeMinimum { get; set; }
+        public double MatchChangeMaximum { get; set; }
     }
     private sealed class AttributeGenerationDto
     {
-        public int Minimum { get; set; } public int Maximum { get; set; } public double StandardDeviation { get; set; }
-        public int ReferenceDivisionLevel { get; set; } public double ReferenceMean { get; set; } public double DivisionMeanGap { get; set; }
-        public ReputationDto? Reputation { get; set; } public AgeCurveDto? AgeCurve { get; set; } public double PositionScale { get; set; }
-        public List<string>? Attributes { get; set; } public List<PositionAffinityDto>? PositionAffinities { get; set; }
+        public int Minimum { get; set; }
+        public int Maximum { get; set; }
+        public double StandardDeviation { get; set; }
+        public int ReferenceDivisionLevel { get; set; }
+        public double ReferenceMean { get; set; }
+        public double DivisionMeanGap { get; set; }
+        public ReputationDto? Reputation { get; set; }
+        public AgeCurveDto? AgeCurve { get; set; }
+        public double PositionScale { get; set; }
+        public List<string>? Attributes { get; set; }
+        public List<PositionAffinityDto>? PositionAffinities { get; set; }
     }
     private sealed class ReputationDto
     {
-        public double Minimum { get; set; } public double Maximum { get; set; } public double Neutral { get; set; }
-        public double Scale { get; set; } public double MaximumShift { get; set; } public Dictionary<string, double>? AttributeWeights { get; set; }
+        public double Minimum { get; set; }
+        public double Maximum { get; set; }
+        public double Neutral { get; set; }
+        public double Scale { get; set; }
+        public double MaximumShift { get; set; }
+        public Dictionary<string, double>? AttributeWeights { get; set; }
     }
     private sealed class AgeCurveDto
     {
-        public int GrowthStartAge { get; set; } public int GrowthEndAge { get; set; }
-        public int DeclineStartAge { get; set; } public int DeclineEndAge { get; set; }
-        public AmplitudesDto? GrowthAmplitudes { get; set; } public AmplitudesDto? DeclineAmplitudes { get; set; }
+        public int GrowthStartAge { get; set; }
+        public int GrowthEndAge { get; set; }
+        public int DeclineStartAge { get; set; }
+        public int DeclineEndAge { get; set; }
+        public AmplitudesDto? GrowthAmplitudes { get; set; }
+        public AmplitudesDto? DeclineAmplitudes { get; set; }
     }
     private sealed class AmplitudesDto { public double Technical { get; set; } public double Mental { get; set; } public double Physical { get; set; } }
     private sealed class PositionAffinityDto { public string? Role { get; set; } public List<double>? Values { get; set; } }
@@ -399,34 +418,45 @@ public sealed class SquadGenerationParams
         double divisionMeanShift, double referenceReputation, int referenceDivisionLevel, double referenceOvr,
         IReadOnlyDictionary<SquadProfile, SquadProfileBands> profiles)
     { MinimumBandCoverage = minimumBandCoverage; MaxAttempts = maxAttempts; ReputationMeanShift = reputationMeanShift; DivisionMeanShift = divisionMeanShift; ReferenceReputation = referenceReputation; ReferenceDivisionLevel = referenceDivisionLevel; ReferenceOvr = referenceOvr; Profiles = new ReadOnlyDictionary<SquadProfile, SquadProfileBands>(new Dictionary<SquadProfile, SquadProfileBands>(profiles)); }
-    public double MinimumBandCoverage { get; } public int MaxAttempts { get; }
-    public double ReputationMeanShift { get; } public double DivisionMeanShift { get; }
-    public double ReferenceReputation { get; } public int ReferenceDivisionLevel { get; } public double ReferenceOvr { get; }
+    public double MinimumBandCoverage { get; }
+    public int MaxAttempts { get; }
+    public double ReputationMeanShift { get; }
+    public double DivisionMeanShift { get; }
+    public double ReferenceReputation { get; }
+    public int ReferenceDivisionLevel { get; }
+    public double ReferenceOvr { get; }
     public IReadOnlyDictionary<SquadProfile, SquadProfileBands> Profiles { get; }
 }
 public sealed class SquadProfileBands
 {
     internal SquadProfileBands(double meanMinimum, double meanMaximum, int starterMinimum, int starterMaximum, int benchMinimum, int benchMaximum)
     { MeanMinimum = meanMinimum; MeanMaximum = meanMaximum; StarterMinimum = starterMinimum; StarterMaximum = starterMaximum; BenchMinimum = benchMinimum; BenchMaximum = benchMaximum; }
-    public double MeanMinimum { get; } public double MeanMaximum { get; }
-    public int StarterMinimum { get; } public int StarterMaximum { get; }
-    public int BenchMinimum { get; } public int BenchMaximum { get; }
+    public double MeanMinimum { get; }
+    public double MeanMaximum { get; }
+    public int StarterMinimum { get; }
+    public int StarterMaximum { get; }
+    public int BenchMinimum { get; }
+    public int BenchMaximum { get; }
 }
 
 public sealed class FitnessParams
 {
     internal FitnessParams(double minimum, double maximum, double preseasonTarget) { Minimum = minimum; Maximum = maximum; PreseasonTarget = preseasonTarget; }
-    public double Minimum { get; } public double Maximum { get; } public double PreseasonTarget { get; }
+    public double Minimum { get; }
+    public double Maximum { get; }
+    public double PreseasonTarget { get; }
 }
 public sealed class MoraleParams
 {
     internal MoraleParams(double minimum, double maximum) { Minimum = minimum; Maximum = maximum; }
-    public double Minimum { get; } public double Maximum { get; }
+    public double Minimum { get; }
+    public double Maximum { get; }
 }
 public sealed class AgeRecoveryFactor
 {
     internal AgeRecoveryFactor(int? maximumAge, double factor) { MaximumAge = maximumAge; Factor = factor; }
-    public int? MaximumAge { get; } public double Factor { get; }
+    public int? MaximumAge { get; }
+    public double Factor { get; }
 }
 public sealed class BoardConfidenceParams
 {
@@ -436,9 +466,14 @@ public sealed class BoardConfidenceParams
         Minimum = minimum; Maximum = maximum; Initial = initial; LeagueWeight = leagueWeight; CupWeight = cupWeight;
         FriendlyWeight = friendlyWeight; MatchChangeMinimum = matchChangeMinimum; MatchChangeMaximum = matchChangeMaximum;
     }
-    public double Minimum { get; } public double Maximum { get; } public double Initial { get; }
-    public double LeagueWeight { get; } public double CupWeight { get; } public double FriendlyWeight { get; }
-    public double MatchChangeMinimum { get; } public double MatchChangeMaximum { get; }
+    public double Minimum { get; }
+    public double Maximum { get; }
+    public double Initial { get; }
+    public double LeagueWeight { get; }
+    public double CupWeight { get; }
+    public double FriendlyWeight { get; }
+    public double MatchChangeMinimum { get; }
+    public double MatchChangeMaximum { get; }
 }
 public sealed class AttributeGenerationParams
 {
@@ -450,13 +485,17 @@ public sealed class AttributeGenerationParams
         ReferenceMean = referenceMean; DivisionMeanGap = divisionMeanGap; Reputation = reputation; AgeCurve = ageCurve;
         PositionScale = positionScale; Attributes = attributes; PositionAffinities = positionAffinities;
     }
-    public int Minimum { get; } public int Maximum { get; } public double StandardDeviation { get; }
+    public int Minimum { get; }
+    public int Maximum { get; }
+    public double StandardDeviation { get; }
     public int ReferenceDivisionLevel { get; }
     /// <summary>Provisional calibration anchor; the configured value 60 is not final production balance.</summary>
     public double ReferenceMean { get; }
     public double DivisionMeanGap { get; }
-    public ReputationGenerationParams Reputation { get; } public AttributeAgeCurveParams AgeCurve { get; }
-    public double PositionScale { get; } public IReadOnlyList<PlayerAttribute> Attributes { get; }
+    public ReputationGenerationParams Reputation { get; }
+    public AttributeAgeCurveParams AgeCurve { get; }
+    public double PositionScale { get; }
+    public IReadOnlyList<PlayerAttribute> Attributes { get; }
     public IReadOnlyList<PositionAffinityProfile> PositionAffinities { get; }
 }
 public sealed class ReputationGenerationParams
@@ -464,8 +503,11 @@ public sealed class ReputationGenerationParams
     internal ReputationGenerationParams(double minimum, double maximum, double neutral, double scale, double maximumShift,
         IReadOnlyDictionary<PlayerAttribute, double> attributeWeights)
     { Minimum = minimum; Maximum = maximum; Neutral = neutral; Scale = scale; MaximumShift = maximumShift; AttributeWeights = attributeWeights; }
-    public double Minimum { get; } public double Maximum { get; } public double Neutral { get; }
-    public double Scale { get; } public double MaximumShift { get; }
+    public double Minimum { get; }
+    public double Maximum { get; }
+    public double Neutral { get; }
+    public double Scale { get; }
+    public double MaximumShift { get; }
     public IReadOnlyDictionary<PlayerAttribute, double> AttributeWeights { get; }
 }
 public sealed class AttributeAgeCurveParams
@@ -473,16 +515,23 @@ public sealed class AttributeAgeCurveParams
     internal AttributeAgeCurveParams(int growthStartAge, int growthEndAge, int declineStartAge, int declineEndAge,
         AttributeFamilyAmplitudes growthAmplitudes, AttributeFamilyAmplitudes declineAmplitudes)
     { GrowthStartAge = growthStartAge; GrowthEndAge = growthEndAge; DeclineStartAge = declineStartAge; DeclineEndAge = declineEndAge; GrowthAmplitudes = growthAmplitudes; DeclineAmplitudes = declineAmplitudes; }
-    public int GrowthStartAge { get; } public int GrowthEndAge { get; } public int DeclineStartAge { get; } public int DeclineEndAge { get; }
-    public AttributeFamilyAmplitudes GrowthAmplitudes { get; } public AttributeFamilyAmplitudes DeclineAmplitudes { get; }
+    public int GrowthStartAge { get; }
+    public int GrowthEndAge { get; }
+    public int DeclineStartAge { get; }
+    public int DeclineEndAge { get; }
+    public AttributeFamilyAmplitudes GrowthAmplitudes { get; }
+    public AttributeFamilyAmplitudes DeclineAmplitudes { get; }
 }
 public sealed class AttributeFamilyAmplitudes
 {
     internal AttributeFamilyAmplitudes(double technical, double mental, double physical) { Technical = technical; Mental = mental; Physical = physical; }
-    public double Technical { get; } public double Mental { get; } public double Physical { get; }
+    public double Technical { get; }
+    public double Mental { get; }
+    public double Physical { get; }
 }
 public sealed class PositionAffinityProfile
 {
     internal PositionAffinityProfile(Role role, IReadOnlyList<double> values) { Role = role; Values = values; }
-    public Role Role { get; } public IReadOnlyList<double> Values { get; }
+    public Role Role { get; }
+    public IReadOnlyList<double> Values { get; }
 }

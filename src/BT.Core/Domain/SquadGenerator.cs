@@ -13,8 +13,12 @@ public sealed class SquadGenerator
     private static readonly IReadOnlyDictionary<int, (int Goalkeepers, int Defenders, int Midfielders, int Forwards)> Sizes =
         new Dictionary<int, (int, int, int, int)>
         {
-            [18] = (2, 6, 6, 4), [19] = (2, 6, 6, 5), [20] = (3, 6, 6, 5),
-            [21] = (3, 6, 7, 5), [22] = (3, 7, 7, 5), [25] = (3, 7, 10, 5)
+            [18] = (2, 6, 6, 4),
+            [19] = (2, 6, 6, 5),
+            [20] = (3, 6, 6, 5),
+            [21] = (3, 6, 7, 5),
+            [22] = (3, 7, 7, 5),
+            [25] = (3, 7, 10, 5)
         };
 
     private readonly AttributeGenerator _attributes;
@@ -243,12 +247,14 @@ public sealed class SquadGenerator
     private sealed class LineupSlot
     {
         public LineupSlot(Position position, Role role) { Position = position; Role = role; }
-        public Position Position { get; } public Role Role { get; }
+        public Position Position { get; }
+        public Role Role { get; }
     }
     private sealed class LineupPick
     {
         public LineupPick(int playerIndex, int ovr) { PlayerIndex = playerIndex; Ovr = ovr; }
-        public int PlayerIndex { get; } public int Ovr { get; }
+        public int PlayerIndex { get; }
+        public int Ovr { get; }
     }
     private sealed class Lineup : IReadOnlyList<LineupPick>
     {

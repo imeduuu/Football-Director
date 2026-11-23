@@ -36,12 +36,12 @@ public sealed class ImplementedInvariantsTests
     public void ExpectedMatchPointsStayWithinTheirDocumentedProbabilityDerivedRange()
     {
         foreach (var club in Samples.UnitValues)
-        foreach (var rival in Samples.UnitValues.Take(32))
-        foreach (var home in new[] { false, true })
-        {
-            var points = SimulationFormulas.ExpectedPoints(club * 100, rival * 100, home);
-            Assert.InRange(points, 0.37, 2.37);
-        }
+            foreach (var rival in Samples.UnitValues.Take(32))
+                foreach (var home in new[] { false, true })
+                {
+                    var points = SimulationFormulas.ExpectedPoints(club * 100, rival * 100, home);
+                    Assert.InRange(points, 0.37, 2.37);
+                }
     }
 
     [Fact]

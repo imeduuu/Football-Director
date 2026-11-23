@@ -22,8 +22,12 @@ public sealed class NamePool
 
     public static NamePool LoadJson(string json)
     {
-        var dto = JsonSerializer.Deserialize<PoolDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = false, PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow });
+        var dto = JsonSerializer.Deserialize<PoolDto>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
+        });
         if (dto is null || string.IsNullOrWhiteSpace(dto.Version) || dto.Countries is null || dto.Countries.Count == 0)
             throw new InvalidDataException("A name pool requires a version and at least one country.");
         var given = new Dictionary<string, Dictionary<string, NameEntry[]>>(StringComparer.Ordinal);
@@ -90,11 +94,11 @@ public sealed class NameGenerator
 
         var available = new List<(string FullName, double Weight)>();
         foreach (var first in given)
-        foreach (var last in surnames)
-        {
-            var fullName = first.Name + " " + last.Name;
-            if (!competition.Contains(fullName)) available.Add((fullName, first.Weight * last.Weight));
-        }
+            foreach (var last in surnames)
+            {
+                var fullName = first.Name + " " + last.Name;
+                if (!competition.Contains(fullName)) available.Add((fullName, first.Weight * last.Weight));
+            }
         if (available.Count == 0) throw new InvalidOperationException("The competition has exhausted all unique names in this pool.");
         var index = RandomDistributions.WeightedChoice(ref rng, available.Select(x => x.Weight).ToArray());
         var result = available[index].FullName;

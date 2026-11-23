@@ -46,24 +46,24 @@ public sealed class SimulationFormulasTests
         Assert.Equal(1.54, SimulationFormulas.ExpectedPoints(50.0, 50.0, true), 2);
         Assert.Equal(1.20, SimulationFormulas.ExpectedPoints(50.0, 50.0, false), 2);
         for (var club = 0; club <= 100; club++)
-        for (var rival = 0; rival <= 100; rival++)
-        foreach (var home in new[] { false, true })
-            Assert.InRange(SimulationFormulas.ExpectedPoints(club, rival, home), 0.37, 2.37);
+            for (var rival = 0; rival <= 100; rival++)
+                foreach (var home in new[] { false, true })
+                    Assert.InRange(SimulationFormulas.ExpectedPoints(club, rival, home), 0.37, 2.37);
     }
 
     [Fact]
     public void ExponentialMovingAverageIsConvexAndHasIdentityEndpoints()
     {
         for (var previous = -20; previous <= 20; previous++)
-        for (var observation = -20; observation <= 20; observation++)
-        for (var step = 0; step <= 100; step++)
-        {
-            var alpha = step / 100.0;
-            var average = SimulationFormulas.ExponentialMovingAverage(previous, observation, alpha);
-            Assert.InRange(average, Math.Min(previous, observation), Math.Max(previous, observation));
-            Assert.Equal(previous, SimulationFormulas.ExponentialMovingAverage(previous, observation, 0.0));
-            Assert.Equal(observation, SimulationFormulas.ExponentialMovingAverage(previous, observation, 1.0));
-        }
+            for (var observation = -20; observation <= 20; observation++)
+                for (var step = 0; step <= 100; step++)
+                {
+                    var alpha = step / 100.0;
+                    var average = SimulationFormulas.ExponentialMovingAverage(previous, observation, alpha);
+                    Assert.InRange(average, Math.Min(previous, observation), Math.Max(previous, observation));
+                    Assert.Equal(previous, SimulationFormulas.ExponentialMovingAverage(previous, observation, 0.0));
+                    Assert.Equal(observation, SimulationFormulas.ExponentialMovingAverage(previous, observation, 1.0));
+                }
         Assert.Throws<ArgumentOutOfRangeException>(() => SimulationFormulas.ExponentialMovingAverage(0, 1, 1.1));
     }
 }
