@@ -11,6 +11,19 @@ namespace BT.Core.Domain;
 public sealed class RoleProfiles
 {
     public const double WeightSumTolerance = 1e-9;
+    private static readonly Attribute[] SliceAttributes =
+    {
+        Attribute.Goalkeeping,
+        Attribute.Tackling,
+        Attribute.Marking,
+        Attribute.Aerial,
+        Attribute.Passing,
+        Attribute.Dribbling,
+        Attribute.Finishing,
+        Attribute.Pace,
+        Attribute.Stamina,
+        Attribute.Positioning
+    };
     private readonly IReadOnlyDictionary<Role, RoleProfile> _byRole;
 
     private RoleProfiles(IReadOnlyList<RoleProfile> profiles)
@@ -24,6 +37,34 @@ public sealed class RoleProfiles
     public RoleProfile this[Role role] => _byRole.TryGetValue(role, out var profile)
         ? profile
         : throw new KeyNotFoundException($"No positional profile is configured for role '{role}'.");
+
+    /// <summary>Returns this role's weights projected onto the ten Vertical Slice attributes.</summary>
+    public RoleProfile GetSliceProfile(Role role)
+    {
+        var profile = this[role];
+        var retained = SliceAttributes
+            .Where(profile.Weights.ContainsKey)
+            .Select(attribute => (Attribute: attribute, Weight: profile.Weights[attribute]))
+            .ToArray();
+        var retainedTotal = retained.Sum(item => item.Weight);
+        if (retainedTotal <= 0.0)
+            throw new InvalidDataException($"Role '{role}' has no positive weight among the Slice attributes.");
+
+        var normalized = new Dictionary<Attribute, double>();
+        var roundedTotal = 0.0;
+        for (var index = 0; index < retained.Length; index++)
+        {
+            var item = retained[index];
+            var scaledWeight = item.Weight / retainedTotal * 1000.0;
+            var weight = index == retained.Length - 1
+                ? 1.0 - roundedTotal
+                : (int)(scaledWeight + 0.5) / 1000.0;
+            normalized.Add(item.Attribute, weight);
+            roundedTotal += weight;
+        }
+
+        return new RoleProfile(role, normalized);
+    }
 
     public static RoleProfiles Load(string path)
     {
