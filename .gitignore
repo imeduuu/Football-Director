@@ -1,0 +1,64 @@
+# .NET, IDE metadata, test and benchmark output
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+**/TestResults/
+BenchmarkDotNet.Artifacts/
+coverage/
+# Restored NuGet packages
+packages/
+**/packages/
+
+# Unity-generated files (scoped to unity/)
+/unity/Library/
+/unity/Temp/
+/unity/Obj/
+/unity/Logs/
+/unity/UserSettings/
+/unity/Builds/
+/unity/MemoryCaptures/
+/unity/*.csproj
+/unity/*.sln
+
+# Mobile build artifacts and platform-specific generated files
+*.apk
+*.aab
+*.ipa
+*.keystore
+*.jks
+xcuserdata/
+DerivedData/
+Pods/
+
+# Local databases and save slots; preserve migration fixtures
+*.db
+*.db-wal
+*.db-shm
+save_slot_*.db
+!tests/fixtures/**
+
+# Tool output and generated balance exports
+out/
+tools/BT.Balance/exports/*.csv
+tools/BT.Balance/exports/*.json
+
+# Secrets and local environment configuration
+.env
+.venv/
+*.pem
+*.p12
+appsettings.*.local.json
+
+# Claude Code local configuration and repository instructions
+CLAUDE.md
+.claude/settings.local.json
+
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
