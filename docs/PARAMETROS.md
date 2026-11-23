@@ -4,6 +4,8 @@ Inventario de constantes, rangos, fórmulas y reglas de prueba citados en las se
 
 Los coeficientes de puntos esperados de la sección 3.4 están versionados bajo `expectedPoints` en [params.json](../config/params.json); los valores de familiaridad posicional están bajo `positionalFamiliarity`. Ambos se validan con [params.schema.json](../config/params.schema.json) y se exponen tipados por `ParamsConfig`.
 
+Las reglas de cada competición de la sección 23 están en `config/competitions/*.v1.json`, validadas por [schema.v1.json](../config/competitions/schema.v1.json) y expuestas como `CompetitionRulesConfig`. Los paquetes de prueba incluidos son de ficción; los paquetes de competiciones reales requieren su reglamento documentado.
+
 | nombre | valor | sección | unidad | estado | prueba que lo valida |
 |---|---|---:|---|---|---|
 | Confianza directiva inicial Cd | 60; dominio [0,100] | 3.4 | puntos | cerrado | Verificar inicialización y clamp tras cada partido oficial. |
