@@ -1637,7 +1637,7 @@ El Vertical Slice acepta tamaños de 18 a 22 jugadores y el MVP genera 25. La co
 | 20 | 3 | 6 | 6 | 5 |
 | 21 | 3 | 6 | 7 | 5 |
 | 22 | 3 | 7 | 7 | 5 |
-| 25 (MVP) | 3 | 7 | 8 | 5 |
+| 25 (MVP) | 3 | 7 | 10 | 5 |
 
 POR significa porteros, DEF defensas, MED mediocampistas y DEL delanteros. No se admiten otros tamaños en este generador. La cobertura garantiza al menos dos porteros y dos jugadores en cada línea. Para considerar válida una plantilla, debe poder asignar jugadores distintos a todas las posiciones de cualquiera de las dos formaciones del Slice: 4-4-2 (POR, LI, 2×DFC, LD, 2×MC, EI, ED, 2×DC) y 4-3-3 (POR, LI, 2×DFC, LD, MCD, 2×MC, EI, ED, DC). ED/EI pueden cubrir las bandas del mediocampo en 4-4-2. La línea de cada jugador se cuenta por su posición primaria; sus posiciones secundarias pueden cubrir otra línea. Un portero no cubre una posición de campo.
 
