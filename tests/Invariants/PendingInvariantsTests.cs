@@ -14,8 +14,20 @@ public sealed class PendingInvariantsTests
     [Fact(Skip = "Stage 9 — Club finances and event processing")]
     public void BudgetsAndBalancesApplyAnEventOnlyOnce() => throw new System.NotImplementedException();
 
-    [Fact(Skip = "Stage 7 — Registration, contracts and loans")]
-    public void PlayerCannotBeRegisteredToTwoActiveClubsOutsideAnExplicitLoan() => throw new System.NotImplementedException();
+    [Fact]
+    public void PlayerCannotBeRegisteredToTwoActiveClubsOutsideAnExplicitLoan()
+    {
+        var registrations = new[]
+        {
+            new BT.Core.Domain.ClubRegistration("p1", "owner", BT.Core.Domain.Position.Striker),
+            new BT.Core.Domain.ClubRegistration("p1", "borrower", BT.Core.Domain.Position.Striker, "owner")
+        };
+        Assert.Empty(BT.Core.Domain.InvariantChecker.CheckRegistrations(registrations));
+        Assert.NotEmpty(BT.Core.Domain.InvariantChecker.CheckRegistrations(new[]
+        {
+            registrations[0], new BT.Core.Domain.ClubRegistration("p1", "other", BT.Core.Domain.Position.Striker)
+        }));
+    }
 
     [Fact(Skip = "Stage 10 — Match simulation and competition tables")]
     public void MatchIsProcessedOnceAndEventsAgreeWithDerivedTables() => throw new System.NotImplementedException();
