@@ -99,7 +99,7 @@ public sealed class ParamsConfig
             foreach (var profile in squad.GetProperty("profiles").EnumerateArray())
                 EnsureRequiredProperties(profile, "name", "meanMinimum", "meanMaximum", "starterMinimum", "starterMaximum", "benchMinimum", "benchMaximum");
             squadGeneration = ParseSquadGeneration(squad);
-            EnsureRequiredProperties(generation, "minimum", "maximum", "standardDeviation", "referenceDivisionLevel", "referenceMean",
+            EnsureRequiredProperties(generation, "minimum", "maximum", "standardDeviation", "talentCorrelation", "referenceDivisionLevel", "referenceMean",
                 "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities");
             EnsureRequiredProperties(generation.GetProperty("reputation"), "minimum", "maximum", "neutral", "scale", "maximumShift", "attributeWeights");
             EnsureRequiredProperties(generation.GetProperty("ageCurve"), "growthStartAge", "growthEndAge", "declineStartAge", "declineEndAge",
@@ -119,7 +119,7 @@ public sealed class ParamsConfig
         Validate(dto);
         var generationDto = dto.AttributeGeneration!;
         var generationParams = new AttributeGenerationParams(generationDto.Minimum, generationDto.Maximum,
-            generationDto.StandardDeviation, generationDto.ReferenceDivisionLevel, generationDto.ReferenceMean,
+            generationDto.StandardDeviation, generationDto.TalentCorrelation, generationDto.ReferenceDivisionLevel, generationDto.ReferenceMean,
             generationDto.DivisionMeanGap,
             new ReputationGenerationParams(generationDto.Reputation!.Minimum, generationDto.Reputation.Maximum,
                 generationDto.Reputation.Neutral, generationDto.Reputation.Scale, generationDto.Reputation.MaximumShift,
@@ -266,6 +266,7 @@ public sealed class ParamsConfig
     {
         Require(generation.Minimum == 1 && generation.Maximum == 99, "attributeGeneration bounds must be [1,99].");
         Require(generation.StandardDeviation > 0 && double.IsFinite(generation.StandardDeviation), "standardDeviation must be finite and positive.");
+        Require(generation.TalentCorrelation >= 0 && double.IsFinite(generation.TalentCorrelation), "talentCorrelation must be finite and non-negative.");
         Require(generation.ReferenceDivisionLevel >= 1, "referenceDivisionLevel must be at least 1.");
         Require(InRange(generation.ReferenceMean, generation.Minimum, generation.Maximum), "referenceMean must be finite and within attribute bounds.");
         Require(generation.DivisionMeanGap > 0 && double.IsFinite(generation.DivisionMeanGap), "divisionMeanGap must be finite and positive.");
@@ -441,6 +442,7 @@ public sealed class ParamsConfig
         public int Minimum { get; set; }
         public int Maximum { get; set; }
         public double StandardDeviation { get; set; }
+        public double TalentCorrelation { get; set; }
         public int ReferenceDivisionLevel { get; set; }
         public double ReferenceMean { get; set; }
         public double DivisionMeanGap { get; set; }
@@ -567,17 +569,19 @@ public sealed class PositionalFamiliarityParams
 }
 public sealed class AttributeGenerationParams
 {
-    internal AttributeGenerationParams(int minimum, int maximum, double standardDeviation, int referenceDivisionLevel,
+    internal AttributeGenerationParams(int minimum, int maximum, double standardDeviation, double talentCorrelation, int referenceDivisionLevel,
         double referenceMean, double divisionMeanGap, ReputationGenerationParams reputation, AttributeAgeCurveParams ageCurve,
         double positionScale, IReadOnlyList<PlayerAttribute> attributes, IReadOnlyList<PositionAffinityProfile> positionAffinities)
     {
-        Minimum = minimum; Maximum = maximum; StandardDeviation = standardDeviation; ReferenceDivisionLevel = referenceDivisionLevel;
+        Minimum = minimum; Maximum = maximum; StandardDeviation = standardDeviation; TalentCorrelation = talentCorrelation; ReferenceDivisionLevel = referenceDivisionLevel;
         ReferenceMean = referenceMean; DivisionMeanGap = divisionMeanGap; Reputation = reputation; AgeCurve = ageCurve;
         PositionScale = positionScale; Attributes = attributes; PositionAffinities = positionAffinities;
     }
     public int Minimum { get; }
     public int Maximum { get; }
     public double StandardDeviation { get; }
+    /// <summary>Shared player-level attribute variation, preserving a rare, naturally generated high-talent tail.</summary>
+    public double TalentCorrelation { get; }
     public int ReferenceDivisionLevel { get; }
     /// <summary>Provisional calibration anchor; the configured value 60 is not final production balance.</summary>
     public double ReferenceMean { get; }

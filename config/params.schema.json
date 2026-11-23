@@ -112,11 +112,12 @@
     },
     "attributeGeneration": {
       "type": "object", "additionalProperties": false,
-      "required": ["minimum", "maximum", "standardDeviation", "referenceDivisionLevel", "referenceMean", "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities"],
+      "required": ["minimum", "maximum", "standardDeviation", "talentCorrelation", "referenceDivisionLevel", "referenceMean", "divisionMeanGap", "reputation", "ageCurve", "positionScale", "attributes", "positionAffinities"],
       "properties": {
         "minimum": { "const": 1 },
         "maximum": { "const": 99 },
         "standardDeviation": { "type": "number", "exclusiveMinimum": 0 },
+        "talentCorrelation": { "type": "number", "minimum": 0, "description": "Shared player-level attribute variation that controls the rare OVR 85+ tail without club quotas." },
         "referenceDivisionLevel": { "type": "integer", "minimum": 1 },
         "referenceMean": {
           "type": "number", "minimum": 1, "maximum": 99,

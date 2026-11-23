@@ -33,12 +33,14 @@ public sealed class AttributeGenerator
             (divisionLevel - _parameters.ReferenceDivisionLevel) * _parameters.DivisionMeanGap;
         var reputationDelta = Clamp((clubReputation - _parameters.Reputation.Neutral) /
             _parameters.Reputation.Scale, -_parameters.Reputation.MaximumShift, _parameters.Reputation.MaximumShift);
+        var talentShift = _parameters.TalentCorrelation == 0 ? 0 :
+            RandomDistributions.TruncatedNormal(ref rng, 0, _parameters.TalentCorrelation, -3 * _parameters.TalentCorrelation, 3 * _parameters.TalentCorrelation);
 
         for (var i = 0; i < _parameters.Attributes.Count; i++)
         {
             var attribute = _parameters.Attributes[i];
             var repWeight = _parameters.Reputation.AttributeWeights[attribute];
-            var mean = baseMean + reputationDelta * repWeight + affinity.Values[i] * _parameters.PositionScale +
+            var mean = baseMean + reputationDelta * repWeight + affinity.Values[i] * _parameters.PositionScale + talentShift +
                 AgeAdjustment(age, ParamsConfig.AttributeFamilies[attribute]) + meanAdjustment;
             var sample = RandomDistributions.TruncatedNormal(ref rng, mean, _parameters.StandardDeviation,
                 _parameters.Minimum, _parameters.Maximum);

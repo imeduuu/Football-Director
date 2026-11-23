@@ -87,6 +87,54 @@ public sealed class SquadGeneratorTests
         Assert.InRange(generated.TargetMeanOvr, bands.MeanMinimum, bands.MeanMaximum);
     }
 
+    [Fact]
+    public void ReferenceTwentyClubPopulationKeepsGlobalOvr85TailWithinGoldenRange()
+    {
+        var generator = CreateGenerator();
+        var profiles = new[]
+        {
+            SquadProfile.Favorite, SquadProfile.Favorite, SquadProfile.Favorite, SquadProfile.Favorite,
+            SquadProfile.UpperHalf, SquadProfile.UpperHalf, SquadProfile.UpperHalf, SquadProfile.UpperHalf,
+            SquadProfile.UpperHalf, SquadProfile.UpperHalf,
+            SquadProfile.LowerHalf, SquadProfile.LowerHalf, SquadProfile.LowerHalf, SquadProfile.LowerHalf,
+            SquadProfile.LowerHalf, SquadProfile.LowerHalf,
+            SquadProfile.RelegationCandidate, SquadProfile.RelegationCandidate,
+            SquadProfile.RelegationCandidate, SquadProfile.RelegationCandidate
+        };
+        var exceptionalCount = 0;
+        var calculator = new OvrCalculator(_profiles, _parameters.PositionalFamiliarity);
+        for (var i = 0; i < profiles.Length; i++)
+        {
+            var division = i < 10 ? 1 : 2;
+            var reputation = profiles[i] switch
+            {
+                SquadProfile.Favorite => 90,
+                SquadProfile.UpperHalf => 70,
+                SquadProfile.LowerHalf => 45,
+                _ => 25
+            };
+            var squad = generator.Generate(25, $"club-{i:D2}", division, reputation,
+                "Lumenia", profiles[i], 0x2030_0000UL, (ulong)i);
+            foreach (var player in squad)
+            {
+                var role = player.Positions[0] switch
+                {
+                    Position.Goalkeeper => Role.Goalkeeper,
+                    Position.LeftBack or Position.RightBack => Role.DefensiveFullBack,
+                    Position.CentreBack => Role.CentreBackMarker,
+                    Position.DefensiveMidfielder => Role.DefensiveMidfielderDestroyer,
+                    Position.CentralMidfielder => Role.BoxToBoxMidfielder,
+                    Position.AttackingMidfielder => Role.AttackingMidfielderPlaymaker,
+                    Position.LeftWinger or Position.RightWinger => Role.Winger,
+                    Position.Striker => Role.AdvancedForward,
+                    _ => throw new InvalidOperationException()
+                };
+                if (calculator.Calculate(player, role, 100) >= 85) exceptionalCount++;
+            }
+        }
+        Assert.InRange(exceptionalCount, 0, 2);
+    }
+
     [Theory]
     [InlineData(SquadProfile.Favorite, 68, 72, 70, 76, 62, 70)]
     [InlineData(SquadProfile.UpperHalf, 63, 68, 65, 71, 58, 66)]
