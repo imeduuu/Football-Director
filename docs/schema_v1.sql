@@ -35,6 +35,15 @@ CREATE TABLE meta (
     CHECK (length(key) BETWEEN 1 AND 80)
 ) WITHOUT ROWID;
 
+-- Immutable generation identity for this save's world (GDD 14.5).
+CREATE TABLE world_generation (
+    world_id          INTEGER PRIMARY KEY CHECK (world_id = 1),
+    seed_world        TEXT NOT NULL CHECK (seed_world NOT GLOB '*[^0-9]*' AND length(seed_world) BETWEEN 1 AND 20),
+    generator_version TEXT NOT NULL CHECK (length(trim(generator_version)) BETWEEN 1 AND 40),
+    CHECK (seed_world = '0' OR substr(seed_world, 1, 1) BETWEEN '1' AND '9'),
+    CHECK (length(seed_world) < 20 OR seed_world <= '18446744073709551615')
+);
+
 -- Claves iniciales recomendadas: schema_version='1', save_id, season_id,
 -- current_round (0..18), world_seed, generator_version, rules_version.
 -- La versión del esquema no se infiere del nombre del archivo.

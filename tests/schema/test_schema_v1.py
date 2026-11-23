@@ -40,12 +40,26 @@ class SchemaV1Tests(unittest.TestCase):
         }
         self.assertEqual(
             {
-                "meta", "clubs", "players", "player_attributes", "lineups",
+                "meta", "world_generation", "clubs", "players", "player_attributes", "lineups",
                 "fixtures", "standings", "matches", "match_events",
             },
             tables,
         )
         self.assertEqual(1, self.connection.execute("PRAGMA foreign_keys").fetchone()[0])
+
+    def test_world_generation_persists_uint64_seed_and_generator_version(self):
+        self.connection.execute(
+            "INSERT INTO world_generation (seed_world, generator_version) VALUES (?, ?)",
+            ("18446744073709551615", "20.3"),
+        )
+        self.assertEqual(
+            ("18446744073709551615", "20.3"),
+            self.connection.execute("SELECT seed_world, generator_version FROM world_generation").fetchone(),
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.connection.execute(
+                "INSERT INTO world_generation (seed_world, generator_version) VALUES (?, ?)", ("18446744073709551616", "20.3")
+            )
 
     def test_constraints_and_triggers_protect_slice_relationships(self):
         with self.assertRaises(sqlite3.IntegrityError):

@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using BT.Core.Rng;
+using BT.Core.Domain;
 using Xunit;
 
 namespace BT.Core.Tests;
@@ -41,5 +42,20 @@ public sealed class SeedDeriverTests
         var reverseFirst = new Pcg32(SeedDeriver.MatchSeed(99, "league", 2030, 1, "A"), 0);
         Assert.Equal(expectedSecond, reverseSecond.NextUInt32());
         Assert.Equal(expectedFirst, reverseFirst.NextUInt32());
+    }
+
+    [Fact]
+    public void WorldGeneratorDerivesStableIndependentSeedsAndPreservesUint64Seed()
+    {
+        var world = new WorldGenerator(ulong.MaxValue, "20.3");
+        Assert.Equal("18446744073709551615", world.SeedMundo);
+        Assert.Equal("20.3", world.Version);
+        var club = world.Subseed("CLUB-001", "club");
+        Assert.Equal(club, world.Subseed("CLUB-001", "club"));
+        Assert.NotEqual(club, world.Subseed("CLUB-002", "club"));
+        Assert.NotEqual(club, world.Subseed("CLUB-001", "players"));
+        Assert.NotEqual(club, new WorldGenerator(ulong.MaxValue, "20.4").Subseed("CLUB-001", "club"));
+        Assert.NotEqual(world.PlayerSubseed("CLUB-001-P01", "attributes"),
+            world.PlayerSubseed("CLUB-001-P02", "attributes"));
     }
 }
