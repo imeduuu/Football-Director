@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "fitness": {
+    "minimum": 0,
+    "maximum": 100,
+    "preseasonTarget": 75
+  },
+  "morale": {
+    "minimum": 0,
+    "maximum": 100
+  },
+  "ageRecoveryFactors": [
+    { "maximumAge": 24, "factor": 1.05 },
+    { "maximumAge": 29, "factor": 1.0 },
+    { "maximumAge": 33, "factor": 0.92 },
+    { "maximumAge": null, "factor": 0.85 }
+  ],
+  "boardConfidence": {
+    "minimum": 0,
+    "maximum": 100,
+    "initial": 60,
+    "leagueWeight": 2.0,
+    "cupWeight": 1.2,
+    "friendlyWeight": 0,
+    "matchChangeMinimum": -8,
+    "matchChangeMaximum": 8
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boardroom-touchline.local/schemas/params.schema.json",
+  "title": "Boardroom & Touchline balance parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "fitness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum", "maximum", "preseasonTarget"],
+      "properties": {
+        "minimum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "maximum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "preseasonTarget": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "morale": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "maximum": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "ageRecoveryFactors": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["maximumAge", "factor"],
+        "properties": {
+          "maximumAge": { "type": ["integer", "null"], "minimum": 0 },
+          "factor": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "boardConfidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum", "maximum", "initial", "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum"],
+      "properties": {
+        "minimum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "maximum": { "type": "number", "minimum": 0, "maximum": 100 },
+        "initial": { "type": "number", "minimum": 0, "maximum": 100 },
+        "leagueWeight": { "type": "number", "minimum": 0 },
+        "cupWeight": { "type": "number", "minimum": 0 },
+        "friendlyWeight": { "type": "number", "minimum": 0 },
+        "matchChangeMinimum": { "type": "number" },
+        "matchChangeMaximum": { "type": "number" }
+      }
+    }
+  }
+}
