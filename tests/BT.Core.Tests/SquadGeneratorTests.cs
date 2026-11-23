@@ -87,6 +87,24 @@ public sealed class SquadGeneratorTests
         Assert.InRange(generated.TargetMeanOvr, bands.MeanMinimum, bands.MeanMaximum);
     }
 
+    [Theory]
+    [InlineData(SquadProfile.Favorite, 68, 72, 70, 76, 62, 70)]
+    [InlineData(SquadProfile.UpperHalf, 63, 68, 65, 71, 58, 66)]
+    [InlineData(SquadProfile.LowerHalf, 58, 63, 60, 66, 53, 62)]
+    [InlineData(SquadProfile.RelegationCandidate, 54, 59, 56, 62, 48, 58)]
+    public void ConfiguresProfileBandsFromSection203(SquadProfile profile, double meanMinimum, double meanMaximum,
+        int starterMinimum, int starterMaximum, int benchMinimum, int benchMaximum)
+    {
+        var bands = _parameters.SquadGeneration.Profiles[profile];
+
+        Assert.Equal(meanMinimum, bands.MeanMinimum);
+        Assert.Equal(meanMaximum, bands.MeanMaximum);
+        Assert.Equal(starterMinimum, bands.StarterMinimum);
+        Assert.Equal(starterMaximum, bands.StarterMaximum);
+        Assert.Equal(benchMinimum, bands.BenchMinimum);
+        Assert.Equal(benchMaximum, bands.BenchMaximum);
+    }
+
     private static System.Collections.Generic.HashSet<int> Select442StarterIds(
         System.Collections.Generic.IReadOnlyList<Player> squad, IReadOnlyList<int> ovr)
     {
