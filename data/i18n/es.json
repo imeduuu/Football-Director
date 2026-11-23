@@ -1,0 +1,15 @@
+{
+  "ui": {
+    "tactics": {
+      "pressure": {
+        "high": "Presión alta"
+      }
+    },
+    "welcome": "Hola, {name}",
+    "players": {
+      "zero": "No hay jugadores",
+      "one": "{count} jugador",
+      "other": "{count} jugadores"
+    }
+  }
+}
