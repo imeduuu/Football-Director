@@ -23,3 +23,9 @@ La salida transforma el estado anterior al avance mediante XSH-RR: desplaza XOR 
 `Fork(streamId)` aplica una mezcla SplitMix64 a la semilla y secuencia originales junto con el identificador, y usa esos valores para inicializar un nuevo PCG32. El mismo constructor y `streamId` producen el mismo stream hijo, aunque el padre ya haya generado números. Identificadores distintos obtienen parámetros derivados distintos salvo posibles colisiones de la mezcla; esto no constituye una garantía criptográfica.
 
 La reproducibilidad se garantiza para una misma implementación/versión del algoritmo y los mismos parámetros. No usar este generador para seguridad criptográfica.
+
+## Semillas por partido
+
+`SeedDeriver.MatchSeed(seedMundo, idCompeticion, temporada, jornada, idPartido)` devuelve la semilla independiente de un partido. Los identificadores se codifican como UTF-8 precedidos por su longitud en bytes; la semilla del mundo es `UInt64` y temporada/jornada son `Int32`, todos little-endian. El registro completo lleva el dominio `BT.MatchSeed.v1` para evitar que colisione con otros usos del hash.
+
+La serialización se mezcla con xxHash64 estándar (seed cero), implementado en `StableHash64`; sus cargas de 32 y 64 bits se leen explícitamente en little-endian. Para simular cada partido se crea su propio `Pcg32` a partir de la semilla derivada y una secuencia fija elegida por el sistema consumidor. Así, el orden de simulación de los partidos no comparte ni avanza estado aleatorio. El hash no es criptográfico.
