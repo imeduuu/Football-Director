@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\golden\core.hash" Link="golden\core.hash" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\config\roles.json" Link="config\roles.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

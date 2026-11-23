@@ -16,5 +16,6 @@ public enum Role
     Winger,
     InvertedWinger,
     AdvancedForward,
-    TargetForward
+    TargetForward,
+    PressingForward
 }

@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "profiles": [
+    { "role": "Goalkeeper", "weights": { "Goalkeeping": 0.45, "Agility": 0.20, "Positioning": 0.20, "Concentration": 0.15 } },
+    { "role": "SweeperKeeper", "weights": { "Goalkeeping": 0.35, "Passing": 0.20, "Pace": 0.15, "Agility": 0.15, "Stamina": 0.15 } },
+    { "role": "CentreBackMarker", "weights": { "Tackling": 0.25, "Marking": 0.25, "Aerial": 0.20, "Strength": 0.20, "Concentration": 0.10 } },
+    { "role": "BallPlayingCentreBack", "weights": { "Marking": 0.20, "Tackling": 0.20, "Passing": 0.25, "Stamina": 0.20, "Positioning": 0.15 } },
+    { "role": "DefensiveFullBack", "weights": { "Tackling": 0.25, "Marking": 0.25, "Pace": 0.20, "Stamina": 0.15, "Positioning": 0.15 } },
+    { "role": "WingBack", "weights": { "Pace": 0.25, "Stamina": 0.25, "Dribbling": 0.20, "Passing": 0.15, "Tackling": 0.15 } },
+    { "role": "DefensiveMidfielderDestroyer", "weights": { "Tackling": 0.30, "Marking": 0.20, "Strength": 0.20, "Aggression": 0.15, "Positioning": 0.15 } },
+    { "role": "DefensiveMidfielderPlaymaker", "weights": { "Passing": 0.30, "Vision": 0.25, "Stamina": 0.20, "Positioning": 0.15, "Tackling": 0.10 } },
+    { "role": "BoxToBoxMidfielder", "weights": { "Stamina": 0.25, "Passing": 0.20, "Tackling": 0.20, "Positioning": 0.20, "LongShots": 0.15 } },
+    { "role": "AttackingMidfielderPlaymaker", "weights": { "Vision": 0.30, "Passing": 0.25, "Dribbling": 0.25, "Stamina": 0.10, "Finishing": 0.10 } },
+    { "role": "Winger", "weights": { "Pace": 0.30, "Dribbling": 0.30, "Agility": 0.20, "Passing": 0.20 } },
+    { "role": "InvertedWinger", "weights": { "Dribbling": 0.25, "Finishing": 0.25, "Pace": 0.20, "Positioning": 0.15, "LongShots": 0.15 } },
+    { "role": "AdvancedForward", "weights": { "Finishing": 0.35, "Pace": 0.25, "Positioning": 0.20, "Stamina": 0.10, "Dribbling": 0.10 } },
+    { "role": "TargetForward", "weights": { "Strength": 0.30, "Aerial": 0.30, "Finishing": 0.20, "Passing": 0.10, "Positioning": 0.10 } },
+    { "role": "PressingForward", "weights": { "Aggression": 0.25, "Stamina": 0.25, "Finishing": 0.20, "Pace": 0.15, "Tackling": 0.15 } }
+  ]
+}
