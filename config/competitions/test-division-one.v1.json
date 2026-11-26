@@ -3,6 +3,6 @@
   "points": { "win": 3, "draw": 1, "loss": 0 },
   "tiebreakers": ["goalDifference", "goalsFor", "headToHeadPoints", "headToHeadGoalDifference", "deterministicDraw"],
   "movement": { "promotedDirect": 0, "relegatedDirect": 2, "playoffPlaces": 0 },
-  "registration": { "windows": [{ "name": "summer", "start": "07-01", "end": "08-31" }, { "name": "winter", "start": "01-01", "end": "01-31" }], "quotas": { "seniorMaximum": 25, "eligibleYouthOutsideQuota": 5, "appliesTo": "registeredSquad" } },
+  "registration": { "windows": [{ "name": "summer", "start": "07-01", "end": "08-31" }, { "name": "winter", "start": "01-01", "end": "01-31" }], "quotas": { "seniorMaximum": 25, "eligibleYouthOutsideQuota": 5, "appliesTo": "registeredSquad", "maximumExtraCommunityRegistered": 5, "maximumExtraCommunityStarters": 3 } },
   "discipline": { "yellowAccumulation": { "threshold": 5, "suspensionMatches": 1 }, "directRed": { "minimumMatches": 1, "additionalMatches": 0 }, "yellowScope": "perCompetition", "redService": "issuingCompetitionThenLeagueIfNoFixturesRemain", "processingOrder": "afterMatchBeforeNextSquadSelection" }
 }

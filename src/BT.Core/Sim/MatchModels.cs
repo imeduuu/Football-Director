@@ -68,7 +68,9 @@ public sealed class MatchTactics
 public sealed class MatchPlayerInput
 {
     public MatchPlayerInput(string playerId, Position position,
-        IReadOnlyDictionary<PlayerAttribute, int> effectiveAttributes, int fitness, int morale)
+        IReadOnlyDictionary<PlayerAttribute, int> effectiveAttributes, int fitness, int morale,
+        int? shirtNumber = null, bool isExtraCommunity = false,
+        bool isInjured = false, bool isSuspended = false)
     {
         PlayerId = string.IsNullOrWhiteSpace(playerId)
             ? throw new ArgumentException("A stable player id is required.", nameof(playerId))
@@ -83,6 +85,10 @@ public sealed class MatchPlayerInput
         EffectiveAttributes = new System.Collections.ObjectModel.ReadOnlyDictionary<PlayerAttribute, int>(attributes);
         Fitness = fitness is >= 0 and <= 100 ? fitness : throw new ArgumentOutOfRangeException(nameof(fitness));
         Morale = morale is >= 0 and <= 100 ? morale : throw new ArgumentOutOfRangeException(nameof(morale));
+        ShirtNumber = shirtNumber is null or >= 1 and <= 99 ? shirtNumber : throw new ArgumentOutOfRangeException(nameof(shirtNumber));
+        IsExtraCommunity = isExtraCommunity;
+        IsInjured = isInjured;
+        IsSuspended = isSuspended;
     }
 
     public string PlayerId { get; }
@@ -90,6 +96,10 @@ public sealed class MatchPlayerInput
     public IReadOnlyDictionary<PlayerAttribute, int> EffectiveAttributes { get; }
     public int Fitness { get; }
     public int Morale { get; }
+    public int? ShirtNumber { get; }
+    public bool IsExtraCommunity { get; }
+    public bool IsInjured { get; }
+    public bool IsSuspended { get; }
 }
 
 /// <summary>Immutable squad and tactical snapshot for one side of a match.</summary>
@@ -110,11 +120,13 @@ public sealed class MatchTeamInput
         if (starterSnapshot.Length != 11 || starterSnapshot.Any(player => player is null) ||
             starterSnapshot.Count(player => player.Position == Position.Goalkeeper) != 1)
             throw new ArgumentException("A starting lineup must contain eleven players and exactly one goalkeeper.", nameof(starters));
-        if (substituteSnapshot.Any(player => player is null))
-            throw new ArgumentException("Substitutes cannot contain null players.", nameof(substitutes));
+        if (substituteSnapshot.Length > 7 || substituteSnapshot.Any(player => player is null))
+            throw new ArgumentException("A selection can contain at most seven non-null substitutes.", nameof(substitutes));
         if (starterSnapshot.Concat(substituteSnapshot).Select(player => player.PlayerId)
             .Distinct(StringComparer.Ordinal).Count() != starterSnapshot.Length + substituteSnapshot.Length)
             throw new ArgumentException("A player can appear only once in a team selection.", nameof(substitutes));
+        if (starterSnapshot.Concat(substituteSnapshot).Any(player => player.IsInjured || player.IsSuspended))
+            throw new ArgumentException("Injured or suspended players cannot be selected.", nameof(substitutes));
 
         Starters = Array.AsReadOnly(starterSnapshot);
         Substitutes = Array.AsReadOnly(substituteSnapshot);
