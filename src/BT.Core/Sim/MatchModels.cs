@@ -363,6 +363,45 @@ public sealed class MatchScore
     public int AwayGoals { get; }
 }
 
+/// <summary>Penalty shootout tally, kept separate from match goals and player scoring statistics.</summary>
+public sealed class PenaltyShootoutState
+{
+    private int _homeKicks, _awayKicks, _homeGoals, _awayGoals;
+    public int HomeKicks => _homeKicks;
+    public int AwayKicks => _awayKicks;
+    public int HomeGoals => _homeGoals;
+    public int AwayGoals => _awayGoals;
+    public bool IsComplete { get; private set; }
+    public string? WinnerTeamId { get; private set; }
+
+    public void RecordKick(string teamId, bool scored, string homeTeamId, string awayTeamId)
+    {
+        if (IsComplete) throw new InvalidOperationException("The shootout is complete.");
+        if (string.IsNullOrWhiteSpace(homeTeamId) || string.IsNullOrWhiteSpace(awayTeamId) || homeTeamId == awayTeamId)
+            throw new ArgumentException("Distinct home and away team ids are required.");
+        if (teamId != homeTeamId && teamId != awayTeamId) throw new ArgumentException("The team is not in this shootout.", nameof(teamId));
+        var homeTurn = _homeKicks == _awayKicks;
+        if ((homeTurn && teamId != homeTeamId) || (!homeTurn && teamId != awayTeamId))
+            throw new InvalidOperationException("Shootout kicks must alternate, with the home team first.");
+
+        if (teamId == homeTeamId) { _homeKicks++; if (scored) _homeGoals++; }
+        else { _awayKicks++; if (scored) _awayGoals++; }
+
+        if (_homeKicks >= 5 && _awayKicks >= 5 && _homeKicks == _awayKicks && _homeGoals != _awayGoals)
+        { Finish(homeTeamId, awayTeamId); return; }
+        if (_homeKicks < 5 || _awayKicks < 5)
+        {
+            var homeRemaining = 5 - _homeKicks;
+            var awayRemaining = 5 - _awayKicks;
+            if (_homeGoals > _awayGoals + awayRemaining) Finish(homeTeamId, awayTeamId);
+            else if (_awayGoals > _homeGoals + homeRemaining) Finish(homeTeamId, awayTeamId);
+        }
+    }
+
+    private void Finish(string homeTeamId, string awayTeamId)
+    { IsComplete = true; WinnerTeamId = _homeGoals > _awayGoals ? homeTeamId : awayTeamId; }
+}
+
 public enum MatchZone
 {
     DefenceLeft,
