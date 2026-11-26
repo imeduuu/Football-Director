@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BT.Core;
 using BT.Core.Domain;
+using PlayerAttribute = BT.Core.Domain.Attribute;
 
 namespace BT.Core.Sim;
 
@@ -20,6 +22,66 @@ public static class SimulationFormulas
         if (value < minimum) return minimum;
         if (value > maximum) return maximum;
         return value;
+    }
+
+    /// <summary>Returns the bounded F_total for one attribute, applying morale only to technical and mental families.</summary>
+    public static double CalculateEffectiveAttributeFactor(PlayerAttribute attribute, double fitness, double morale,
+        ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        if (!Enum.IsDefined(typeof(PlayerAttribute), attribute)) throw new ArgumentOutOfRangeException(nameof(attribute));
+        ValidateStatus(fitness, parameters.Fitness.Minimum, parameters.Fitness.Maximum, nameof(fitness));
+        ValidateStatus(morale, parameters.Morale.Minimum, parameters.Morale.Maximum, nameof(morale));
+
+        var settings = parameters.EffectivePerformance;
+        var fitnessFactor = 1.0;
+        if (fitness < settings.FitnessNeutral)
+        {
+            fitnessFactor = 1.0 - (settings.FitnessNeutral - fitness) * settings.FitnessDeclinePerPoint;
+            if (fitnessFactor < settings.FitnessMinimumFactor)
+                fitnessFactor = settings.FitnessMinimumFactor;
+        }
+        var moraleFactor = ParamsConfig.AttributeFamilies[attribute] == AttributeFamily.Physical
+            ? 1.0
+            : settings.MoraleBaseFactor + morale / 100.0 * settings.MoraleRangeFactor;
+        var softFactor = Clamp(settings.CohesionFactor * settings.RelationsFactor *
+            settings.TacticalFamiliarityFactor, settings.SoftFactorMinimum, settings.SoftFactorMaximum);
+        return Clamp(fitnessFactor * moraleFactor * softFactor,
+            settings.TotalFactorMinimum, settings.TotalFactorMaximum);
+    }
+
+    /// <summary>Calculates one contextual attribute value without changing its base value or OVR.</summary>
+    public static double CalculateEffectiveAttribute(double baseAttribute, PlayerAttribute attribute,
+        double fitness, double morale, ParamsConfig parameters)
+    {
+        EnsureFinite(baseAttribute, nameof(baseAttribute));
+        if (baseAttribute < 0.0) throw new ArgumentOutOfRangeException(nameof(baseAttribute));
+        return baseAttribute * CalculateEffectiveAttributeFactor(attribute, fitness, morale, parameters);
+    }
+
+    /// <summary>Calculates a role's weighted effective rating, then applies role familiarity.</summary>
+    public static double CalculateEffectiveRoleRating(IReadOnlyDictionary<PlayerAttribute, int> baseAttributes,
+        RoleProfile roleProfile, double fitness, double morale, double roleFamiliarityPercent,
+        ParamsConfig parameters)
+    {
+        if (baseAttributes is null) throw new ArgumentNullException(nameof(baseAttributes));
+        if (roleProfile is null) throw new ArgumentNullException(nameof(roleProfile));
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        if (!IsFinite(roleFamiliarityPercent) ||
+            roleFamiliarityPercent < parameters.PositionalFamiliarity.Minimum ||
+            roleFamiliarityPercent > parameters.PositionalFamiliarity.Maximum)
+            throw new ArgumentOutOfRangeException(nameof(roleFamiliarityPercent),
+                "Role familiarity is outside the configured bounds.");
+
+        var weightedRating = 0.0;
+        foreach (var (attribute, weight) in roleProfile.Weights.OrderBy(pair => pair.Key))
+        {
+            if (!baseAttributes.TryGetValue(attribute, out var value) || value is < 1 or > 99)
+                throw new ArgumentException($"Base attribute '{attribute}' must have a value in [1,99].", nameof(baseAttributes));
+            weightedRating += CalculateEffectiveAttribute(value, attribute, fitness, morale, parameters) * weight;
+        }
+
+        return weightedRating * (roleFamiliarityPercent / 100.0);
     }
 
     /// <summary>Returns the smooth membership weight for the defensive sector from GDD 10.4.</summary>
@@ -169,6 +231,13 @@ public static class SimulationFormulas
         EnsureFinite(value, parameterName);
         if (value < 0.0 || value > 100.0)
             throw new ArgumentOutOfRangeException(parameterName, "Pitch coordinates must be in [0, 100].");
+    }
+
+    private static void ValidateStatus(double value, double minimum, double maximum, string parameterName)
+    {
+        EnsureFinite(value, parameterName);
+        if (value < minimum || value > maximum)
+            throw new ArgumentOutOfRangeException(parameterName, "Status value is outside its configured bounds.");
     }
 
     private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);

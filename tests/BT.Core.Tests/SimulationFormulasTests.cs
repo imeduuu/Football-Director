@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.Json.Nodes;
 using BT.Core;
 using BT.Core.Domain;
 using BT.Core.Sim;
 using Xunit;
+using PlayerAttribute = BT.Core.Domain.Attribute;
 
 namespace BT.Core.Tests;
 
@@ -69,6 +72,61 @@ public sealed class SimulationFormulasTests
                     Assert.Equal(observation, SimulationFormulas.ExponentialMovingAverage(previous, observation, 1.0));
                 }
         Assert.Throws<ArgumentOutOfRangeException>(() => SimulationFormulas.ExponentialMovingAverage(0, 1, 1.1));
+    }
+
+    [Fact]
+    public void EffectiveAttributeAppliesFitnessToAllAndMoraleOnlyToTechnicalAndMentalAttributes()
+    {
+        var parameters = LoadParams();
+
+        Assert.Equal(83.2, SimulationFormulas.CalculateEffectiveAttribute(
+            80, PlayerAttribute.Passing, 95, 70, parameters), 10);
+        Assert.Equal(83.2, SimulationFormulas.CalculateEffectiveAttribute(
+            80, PlayerAttribute.Positioning, 95, 70, parameters), 10);
+        Assert.Equal(80.0, SimulationFormulas.CalculateEffectiveAttribute(
+            80, PlayerAttribute.Pace, 95, 0, parameters), 10);
+        Assert.Equal(56.0, SimulationFormulas.CalculateEffectiveAttribute(
+            80, PlayerAttribute.Passing, 30, 50, parameters), 10);
+    }
+
+    [Fact]
+    public void EffectiveSoftFactorsAreNeutralInTheSliceAndTotalFactorIsBounded()
+    {
+        var parameters = LoadParams();
+        Assert.Equal(1.0, parameters.EffectivePerformance.CohesionFactor);
+        Assert.Equal(1.0, parameters.EffectivePerformance.RelationsFactor);
+        Assert.Equal(1.0, parameters.EffectivePerformance.TacticalFamiliarityFactor);
+        Assert.Equal(1.0, SimulationFormulas.CalculateEffectiveAttributeFactor(
+            PlayerAttribute.Passing, 80, 50, parameters));
+
+        var adjusted = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        adjusted["effectivePerformance"]!["moraleBaseFactor"] = 0.1;
+        var lowParameters = ParamsConfig.LoadJson(adjusted.ToJsonString());
+        Assert.Equal(0.60, SimulationFormulas.CalculateEffectiveAttributeFactor(
+            PlayerAttribute.Passing, 0, 0, lowParameters), 10);
+
+        adjusted["effectivePerformance"]!["moraleBaseFactor"] = 2.0;
+        adjusted["effectivePerformance"]!["cohesionFactor"] = 2.0;
+        adjusted["effectivePerformance"]!["softFactorMaximum"] = 1.5;
+        var highParameters = ParamsConfig.LoadJson(adjusted.ToJsonString());
+        Assert.Equal(1.15, SimulationFormulas.CalculateEffectiveAttributeFactor(
+            PlayerAttribute.Passing, 100, 100, highParameters), 10);
+    }
+
+    [Fact]
+    public void EffectiveRoleRatingAppliesRoleFamiliarityAfterWeightedAttributes()
+    {
+        var parameters = LoadParams();
+        var roles = RoleProfiles.Load(Path.Combine(AppContext.BaseDirectory, "config", "roles.json"));
+        var attributes = new Dictionary<PlayerAttribute, int>();
+        foreach (PlayerAttribute attribute in Enum.GetValues(typeof(PlayerAttribute)))
+            attributes.Add(attribute, 80);
+
+        var rating = SimulationFormulas.CalculateEffectiveRoleRating(attributes,
+            roles[Role.CentreBackMarker], 80, 50, 70, parameters);
+
+        Assert.Equal(56.0, rating, 10);
+        Assert.All(attributes.Values, value => Assert.Equal(80, value));
     }
 
     [Fact]
@@ -161,4 +219,8 @@ public sealed class SimulationFormulasTests
         for (var index = 0; index < values.Count; index++) total += values[index];
         return total;
     }
+
+    private static string ParamsPath => Path.Combine(AppContext.BaseDirectory, "config", "params.json");
+
+    private static ParamsConfig LoadParams() => ParamsConfig.Load(ParamsPath);
 }

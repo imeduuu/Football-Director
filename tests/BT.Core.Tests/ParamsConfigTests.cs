@@ -42,6 +42,16 @@ public sealed class ParamsConfigTests
         Assert.Equal(100, config.PositionalFamiliarity.Primary);
         Assert.Equal(92, config.PositionalFamiliarity.SecondaryHigh);
         Assert.Equal(85, config.PositionalFamiliarity.SecondaryLow);
+        Assert.Equal(80, config.EffectivePerformance.FitnessNeutral);
+        Assert.Equal(0.006, config.EffectivePerformance.FitnessDeclinePerPoint);
+        Assert.Equal(0.70, config.EffectivePerformance.FitnessMinimumFactor);
+        Assert.Equal(0.90, config.EffectivePerformance.MoraleBaseFactor);
+        Assert.Equal(0.20, config.EffectivePerformance.MoraleRangeFactor);
+        Assert.Equal(0.60, config.EffectivePerformance.TotalFactorMinimum);
+        Assert.Equal(1.15, config.EffectivePerformance.TotalFactorMaximum);
+        Assert.Equal(1.00, config.EffectivePerformance.CohesionFactor);
+        Assert.Equal(1.00, config.EffectivePerformance.RelationsFactor);
+        Assert.Equal(1.00, config.EffectivePerformance.TacticalFamiliarityFactor);
     }
 
     [Fact]
@@ -107,6 +117,15 @@ public sealed class ParamsConfigTests
     {
         var node = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
         node["positionalFamiliarity"]!["secondaryLow"] = 60;
+        Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
+    }
+
+    [Fact]
+    public void RejectsInvalidEffectivePerformanceFactorBounds()
+    {
+        var node = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        node["effectivePerformance"]!["totalFactorMinimum"] = 1.2;
+        node["effectivePerformance"]!["totalFactorMaximum"] = 1.1;
         Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
     }
 

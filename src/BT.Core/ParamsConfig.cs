@@ -22,7 +22,8 @@ public sealed class ParamsConfig
     private ParamsConfig(string version, FitnessParams fitness, MoraleParams morale,
         IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
         AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration,
-        ExpectedPointsParams expectedPoints, PositionalFamiliarityParams positionalFamiliarity)
+        ExpectedPointsParams expectedPoints, PositionalFamiliarityParams positionalFamiliarity,
+        EffectivePerformanceParams effectivePerformance)
     {
         Version = version;
         Fitness = fitness;
@@ -33,6 +34,7 @@ public sealed class ParamsConfig
         SquadGeneration = squadGeneration;
         ExpectedPoints = expectedPoints;
         PositionalFamiliarity = positionalFamiliarity;
+        EffectivePerformance = effectivePerformance;
     }
 
     public string Version { get; }
@@ -44,6 +46,7 @@ public sealed class ParamsConfig
     public SquadGenerationParams SquadGeneration { get; }
     public ExpectedPointsParams ExpectedPoints { get; }
     public PositionalFamiliarityParams PositionalFamiliarity { get; }
+    public EffectivePerformanceParams EffectivePerformance { get; }
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
         new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
@@ -83,7 +86,7 @@ public sealed class ParamsConfig
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$");
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "worldGeneration");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "worldGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -93,6 +96,9 @@ public sealed class ParamsConfig
                 "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum");
             EnsureRequiredProperties(root.GetProperty("expectedPoints"), "homeAdvantage", "reputationScale", "basePoints", "winPoints");
             EnsureRequiredProperties(root.GetProperty("positionalFamiliarity"), "minimum", "maximum", "primary", "secondaryHigh", "secondaryLow");
+            EnsureRequiredProperties(root.GetProperty("effectivePerformance"), "fitnessNeutral", "fitnessDeclinePerPoint",
+                "fitnessMinimumFactor", "moraleBaseFactor", "moraleRangeFactor", "softFactorMinimum", "softFactorMaximum",
+                "totalFactorMinimum", "totalFactorMaximum", "cohesionFactor", "relationsFactor", "tacticalFamiliarityFactor");
             var generation = root.GetProperty("attributeGeneration");
             var squad = root.GetProperty("squadGeneration");
             EnsureRequiredProperties(squad, "minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles");
@@ -143,7 +149,13 @@ public sealed class ParamsConfig
             new ExpectedPointsParams(dto.ExpectedPoints!.HomeAdvantage, dto.ExpectedPoints.ReputationScale,
                 dto.ExpectedPoints.BasePoints, dto.ExpectedPoints.WinPoints),
             new PositionalFamiliarityParams(dto.PositionalFamiliarity!.Minimum, dto.PositionalFamiliarity.Maximum,
-                dto.PositionalFamiliarity.Primary, dto.PositionalFamiliarity.SecondaryHigh, dto.PositionalFamiliarity.SecondaryLow));
+                dto.PositionalFamiliarity.Primary, dto.PositionalFamiliarity.SecondaryHigh, dto.PositionalFamiliarity.SecondaryLow),
+            new EffectivePerformanceParams(dto.EffectivePerformance!.FitnessNeutral, dto.EffectivePerformance.FitnessDeclinePerPoint,
+                dto.EffectivePerformance.FitnessMinimumFactor, dto.EffectivePerformance.MoraleBaseFactor,
+                dto.EffectivePerformance.MoraleRangeFactor, dto.EffectivePerformance.SoftFactorMinimum,
+                dto.EffectivePerformance.SoftFactorMaximum, dto.EffectivePerformance.TotalFactorMinimum,
+                dto.EffectivePerformance.TotalFactorMaximum, dto.EffectivePerformance.CohesionFactor,
+                dto.EffectivePerformance.RelationsFactor, dto.EffectivePerformance.TacticalFamiliarityFactor));
     }
 
     private static SquadGenerationParams ParseSquadGeneration(JsonElement element)
@@ -208,6 +220,7 @@ public sealed class ParamsConfig
         Require(dto.AttributeGeneration is not null, "attributeGeneration is required.");
         Require(dto.ExpectedPoints is not null, "expectedPoints is required.");
         Require(dto.PositionalFamiliarity is not null, "positionalFamiliarity is required.");
+        Require(dto.EffectivePerformance is not null, "effectivePerformance is required.");
 
         var fitness = dto.Fitness!;
         var morale = dto.Morale!;
@@ -260,6 +273,29 @@ public sealed class ParamsConfig
             familiarity.SecondaryHigh >= familiarity.Minimum && familiarity.SecondaryHigh <= familiarity.Maximum &&
             familiarity.SecondaryLow >= familiarity.Minimum && familiarity.SecondaryLow <= familiarity.Maximum,
             "positional familiarity values must fit the configured bounds.");
+
+        var performance = dto.EffectivePerformance!;
+        Require(double.IsFinite(performance.FitnessNeutral) && performance.FitnessNeutral is >= 0 and <= 100,
+            "effectivePerformance.fitnessNeutral must be finite and in [0,100].");
+        Require(double.IsFinite(performance.FitnessDeclinePerPoint) && performance.FitnessDeclinePerPoint > 0,
+            "effectivePerformance.fitnessDeclinePerPoint must be finite and positive.");
+        Require(double.IsFinite(performance.FitnessMinimumFactor) && performance.FitnessMinimumFactor is > 0 and <= 1,
+            "effectivePerformance.fitnessMinimumFactor must be finite and in (0,1].");
+        Require(double.IsFinite(performance.MoraleBaseFactor) && performance.MoraleBaseFactor > 0,
+            "effectivePerformance.moraleBaseFactor must be finite and positive.");
+        Require(double.IsFinite(performance.MoraleRangeFactor) && performance.MoraleRangeFactor >= 0,
+            "effectivePerformance.moraleRangeFactor must be finite and non-negative.");
+        Require(double.IsFinite(performance.SoftFactorMinimum) && performance.SoftFactorMinimum > 0 &&
+            double.IsFinite(performance.SoftFactorMaximum) && performance.SoftFactorMinimum <= performance.SoftFactorMaximum,
+            "effectivePerformance soft factor bounds must be finite, positive, and ordered.");
+        Require(double.IsFinite(performance.TotalFactorMinimum) && performance.TotalFactorMinimum > 0 &&
+            double.IsFinite(performance.TotalFactorMaximum) && performance.TotalFactorMinimum <= performance.TotalFactorMaximum,
+            "effectivePerformance total factor bounds must be finite, positive, and ordered.");
+        Require(double.IsFinite(performance.CohesionFactor) && performance.CohesionFactor > 0 &&
+            double.IsFinite(performance.RelationsFactor) && performance.RelationsFactor > 0 &&
+            double.IsFinite(performance.TacticalFamiliarityFactor) && performance.TacticalFamiliarityFactor > 0 &&
+            double.IsFinite(performance.CohesionFactor * performance.RelationsFactor * performance.TacticalFamiliarityFactor),
+            "effectivePerformance soft factors must be finite and positive.");
     }
 
     private static void ValidateAttributeGeneration(AttributeGenerationDto generation)
@@ -407,6 +443,7 @@ public sealed class ParamsConfig
         public JsonElement WorldGeneration { get; set; }
         public ExpectedPointsDto? ExpectedPoints { get; set; }
         public PositionalFamiliarityDto? PositionalFamiliarity { get; set; }
+        public EffectivePerformanceDto? EffectivePerformance { get; set; }
     }
 
     private sealed class FitnessDto { public double Minimum { get; set; } public double Maximum { get; set; } public double PreseasonTarget { get; set; } }
@@ -437,6 +474,21 @@ public sealed class ParamsConfig
         public int Primary { get; set; }
         public int SecondaryHigh { get; set; }
         public int SecondaryLow { get; set; }
+    }
+    private sealed class EffectivePerformanceDto
+    {
+        public double FitnessNeutral { get; set; }
+        public double FitnessDeclinePerPoint { get; set; }
+        public double FitnessMinimumFactor { get; set; }
+        public double MoraleBaseFactor { get; set; }
+        public double MoraleRangeFactor { get; set; }
+        public double SoftFactorMinimum { get; set; }
+        public double SoftFactorMaximum { get; set; }
+        public double TotalFactorMinimum { get; set; }
+        public double TotalFactorMaximum { get; set; }
+        public double CohesionFactor { get; set; }
+        public double RelationsFactor { get; set; }
+        public double TacticalFamiliarityFactor { get; set; }
     }
     private sealed class AttributeGenerationDto
     {
@@ -567,6 +619,34 @@ public sealed class PositionalFamiliarityParams
     public int Primary { get; }
     public int SecondaryHigh { get; }
     public int SecondaryLow { get; }
+}
+public sealed class EffectivePerformanceParams
+{
+    internal EffectivePerformanceParams(double fitnessNeutral, double fitnessDeclinePerPoint,
+        double fitnessMinimumFactor, double moraleBaseFactor, double moraleRangeFactor,
+        double softFactorMinimum, double softFactorMaximum, double totalFactorMinimum,
+        double totalFactorMaximum, double cohesionFactor, double relationsFactor,
+        double tacticalFamiliarityFactor)
+    {
+        FitnessNeutral = fitnessNeutral; FitnessDeclinePerPoint = fitnessDeclinePerPoint;
+        FitnessMinimumFactor = fitnessMinimumFactor; MoraleBaseFactor = moraleBaseFactor;
+        MoraleRangeFactor = moraleRangeFactor; SoftFactorMinimum = softFactorMinimum;
+        SoftFactorMaximum = softFactorMaximum; TotalFactorMinimum = totalFactorMinimum;
+        TotalFactorMaximum = totalFactorMaximum; CohesionFactor = cohesionFactor;
+        RelationsFactor = relationsFactor; TacticalFamiliarityFactor = tacticalFamiliarityFactor;
+    }
+    public double FitnessNeutral { get; }
+    public double FitnessDeclinePerPoint { get; }
+    public double FitnessMinimumFactor { get; }
+    public double MoraleBaseFactor { get; }
+    public double MoraleRangeFactor { get; }
+    public double SoftFactorMinimum { get; }
+    public double SoftFactorMaximum { get; }
+    public double TotalFactorMinimum { get; }
+    public double TotalFactorMaximum { get; }
+    public double CohesionFactor { get; }
+    public double RelationsFactor { get; }
+    public double TacticalFamiliarityFactor { get; }
 }
 public sealed class AttributeGenerationParams
 {

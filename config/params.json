@@ -67,6 +67,20 @@
     "secondaryHigh": 92,
     "secondaryLow": 85
   },
+  "effectivePerformance": {
+    "fitnessNeutral": 80,
+    "fitnessDeclinePerPoint": 0.006,
+    "fitnessMinimumFactor": 0.70,
+    "moraleBaseFactor": 0.90,
+    "moraleRangeFactor": 0.20,
+    "softFactorMinimum": 0.90,
+    "softFactorMaximum": 1.04,
+    "totalFactorMinimum": 0.60,
+    "totalFactorMaximum": 1.15,
+    "cohesionFactor": 1.00,
+    "relationsFactor": 1.00,
+    "tacticalFamiliarityFactor": 1.00
+  },
   "attributeGeneration": {
     "minimum": 1,
     "maximum": 99,

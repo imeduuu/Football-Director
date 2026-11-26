@@ -4,7 +4,7 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "attributeGeneration", "squadGeneration", "worldGeneration"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "attributeGeneration", "squadGeneration", "worldGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
     "worldGeneration": { "type": "object", "additionalProperties": false,
@@ -120,6 +120,24 @@
         "primary": { "type": "integer", "minimum": 0, "maximum": 100 },
         "secondaryHigh": { "type": "integer", "minimum": 0, "maximum": 100 },
         "secondaryLow": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "effectivePerformance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fitnessNeutral", "fitnessDeclinePerPoint", "fitnessMinimumFactor", "moraleBaseFactor", "moraleRangeFactor", "softFactorMinimum", "softFactorMaximum", "totalFactorMinimum", "totalFactorMaximum", "cohesionFactor", "relationsFactor", "tacticalFamiliarityFactor"],
+      "properties": {
+        "fitnessNeutral": { "type": "number", "minimum": 0, "maximum": 100 },
+        "fitnessDeclinePerPoint": { "type": "number", "exclusiveMinimum": 0 },
+        "fitnessMinimumFactor": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "moraleBaseFactor": { "type": "number", "exclusiveMinimum": 0 },
+        "moraleRangeFactor": { "type": "number", "minimum": 0 },
+        "softFactorMinimum": { "type": "number", "exclusiveMinimum": 0 },
+        "softFactorMaximum": { "type": "number", "exclusiveMinimum": 0 },
+        "totalFactorMinimum": { "type": "number", "exclusiveMinimum": 0 },
+        "totalFactorMaximum": { "type": "number", "exclusiveMinimum": 0 },
+        "cohesionFactor": { "type": "number", "exclusiveMinimum": 0 },
+        "relationsFactor": { "type": "number", "exclusiveMinimum": 0 },
+        "tacticalFamiliarityFactor": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "attributeGeneration": {
