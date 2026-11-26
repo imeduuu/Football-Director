@@ -20,6 +20,26 @@ public enum PressingStyle { LowBlock, Medium, High, Gegenpressing }
 public enum DefensiveLine { Deep, Normal, High }
 public enum TeamWidth { Narrow, Normal, Wide }
 
+/// <summary>Intermediate tactical effects and UI alerts derived from Slice tactics.</summary>
+public sealed class TacticalTension
+{
+    internal TacticalTension(double pressureEffectivenessMultiplier, double centralProgressionMultiplier,
+        double backlineCoverageMultiplier, double throughPassMultiplier, IReadOnlyList<string> alerts)
+    {
+        PressureEffectivenessMultiplier = pressureEffectivenessMultiplier;
+        CentralProgressionMultiplier = centralProgressionMultiplier;
+        BacklineCoverageMultiplier = backlineCoverageMultiplier;
+        ThroughPassMultiplier = throughPassMultiplier;
+        Alerts = Array.AsReadOnly(alerts.ToArray());
+    }
+
+    public double PressureEffectivenessMultiplier { get; }
+    public double CentralProgressionMultiplier { get; }
+    public double BacklineCoverageMultiplier { get; }
+    public double ThroughPassMultiplier { get; }
+    public IReadOnlyList<string> Alerts { get; }
+}
+
 /// <summary>Immutable snapshot of the five collective tactical axes from GDD section 6.3.</summary>
 public sealed class MatchTactics
 {

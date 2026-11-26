@@ -11,6 +11,46 @@ namespace BT.Core.Sim;
 public static class SimulationFormulas
 {
     private const double ZoneBlendHalfWidth = 5.0;
+    private const double TacticalTensionEffectCap = 0.12;
+
+    /// <summary>Calculates Slice tactical incompatibilities as bounded intermediate-variable multipliers.</summary>
+    public static TacticalTension CalculateTacticalTension(MatchTactics tactics)
+    {
+        if (tactics is null) throw new ArgumentNullException(nameof(tactics));
+
+        var pressureEffectiveness = 0.0;
+        var centralProgression = 0.0;
+        var backlineCoverage = 0.0;
+        var throughPass = 0.0;
+        var alerts = new List<string>();
+
+        // I1: gegenpressing paired with a very deep line. Slice severity is 0.75.
+        if (tactics.Pressing == PressingStyle.Gegenpressing && tactics.DefensiveLine == DefensiveLine.Deep)
+        {
+            const double severity = 0.75;
+            pressureEffectiveness -= 0.08 * severity;
+            centralProgression += 0.06 * severity;
+            alerts.Add("Tensión táctica: I1 — gegenpressing con línea muy atrás.");
+        }
+
+        // I2: an advanced line paired with a low block. Slice severity is 0.5.
+        if (tactics.Pressing == PressingStyle.LowBlock && tactics.DefensiveLine == DefensiveLine.High)
+        {
+            const double severity = 0.5;
+            backlineCoverage -= 0.08 * severity;
+            throughPass += 0.08 * severity;
+            alerts.Add("Tensión táctica: I2 — línea adelantada con bloque bajo.");
+        }
+
+        // Keep each intermediate variable within the GDD's 12% cumulative relative-effect budget.
+        pressureEffectiveness = Clamp(pressureEffectiveness, -TacticalTensionEffectCap, TacticalTensionEffectCap);
+        centralProgression = Clamp(centralProgression, -TacticalTensionEffectCap, TacticalTensionEffectCap);
+        backlineCoverage = Clamp(backlineCoverage, -TacticalTensionEffectCap, TacticalTensionEffectCap);
+        throughPass = Clamp(throughPass, -TacticalTensionEffectCap, TacticalTensionEffectCap);
+
+        return new TacticalTension(1.0 + pressureEffectiveness, 1.0 + centralProgression,
+            1.0 + backlineCoverage, 1.0 + throughPass, alerts);
+    }
 
     /// <summary>Clamps a finite value to an inclusive finite range.</summary>
     public static double Clamp(double value, double minimum, double maximum)
