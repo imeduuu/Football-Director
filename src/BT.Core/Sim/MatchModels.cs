@@ -237,6 +237,36 @@ public enum MatchZone
     AttackRight
 }
 
+/// <summary>How the shooter received the ball before the attempt.</summary>
+public enum ShotAssistType { None, ThroughBall, Cross, Cutback, LongPass, Rebound }
+
+/// <summary>Open-play context for an expected-goals estimate.</summary>
+public enum ShotSituation { OpenPlay, CounterAttack, SetPiece, Penalty }
+
+/// <summary>Geometry and context of a shot; deliberately contains no shooter identity or attributes.</summary>
+public sealed class ShotOpportunity
+{
+    public ShotOpportunity(double distanceMetres, double angleDegrees, ShotAssistType assistType,
+        double pressure, ShotSituation situation)
+    {
+        if (!double.IsFinite(distanceMetres) || distanceMetres < 0 || distanceMetres > 60)
+            throw new ArgumentOutOfRangeException(nameof(distanceMetres));
+        if (!double.IsFinite(angleDegrees) || angleDegrees < 0 || angleDegrees > 90)
+            throw new ArgumentOutOfRangeException(nameof(angleDegrees));
+        if (!double.IsFinite(pressure) || pressure < 0 || pressure > 1)
+            throw new ArgumentOutOfRangeException(nameof(pressure));
+        if (!Enum.IsDefined(typeof(ShotAssistType), assistType)) throw new ArgumentOutOfRangeException(nameof(assistType));
+        if (!Enum.IsDefined(typeof(ShotSituation), situation)) throw new ArgumentOutOfRangeException(nameof(situation));
+        DistanceMetres = distanceMetres; AngleDegrees = angleDegrees; AssistType = assistType;
+        Pressure = pressure; Situation = situation;
+    }
+    public double DistanceMetres { get; }
+    public double AngleDegrees { get; }
+    public ShotAssistType AssistType { get; }
+    public double Pressure { get; }
+    public ShotSituation Situation { get; }
+}
+
 /// <summary>Nine-cell zone map ordered defence-to-attack, left-to-right.</summary>
 public sealed class MatchZoneMap
 {

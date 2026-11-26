@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BT.Core;
 using BT.Core.Domain;
+using BT.Core.Rng;
 using PlayerAttribute = BT.Core.Domain.Attribute;
 
 namespace BT.Core.Sim;
@@ -12,6 +13,45 @@ public static class SimulationFormulas
 {
     private const double ZoneBlendHalfWidth = 5.0;
     private const double TacticalTensionEffectCap = 0.12;
+
+    /// <summary>Resolves whether an attack creates a shot, with a symmetric random adjustment to the defensive threshold.</summary>
+    public static bool ProgressionCreatesShot(double progression, double defensiveThreshold,
+        double variability, ref Pcg32 random)
+    {
+        EnsureNonNegativeFinite(progression, nameof(progression));
+        EnsureNonNegativeFinite(defensiveThreshold, nameof(defensiveThreshold));
+        EnsureNonNegativeFinite(variability, nameof(variability));
+        var adjustedThreshold = defensiveThreshold + (random.NextDouble() * 2.0 - 1.0) * variability;
+        return progression > adjustedThreshold;
+    }
+
+    /// <summary>Estimates pre-finisher shot quality from geometry and context (GDD 10.5).</summary>
+    public static double CalculateExpectedGoals(ShotOpportunity opportunity)
+    {
+        if (opportunity is null) throw new ArgumentNullException(nameof(opportunity));
+        // Distance and angle establish the baseline; context modifies it before final clamping.
+        var distanceFactor = Math.Exp(-opportunity.DistanceMetres / 18.0);
+        var angleFactor = 0.35 + 0.65 * Math.Cos(opportunity.AngleDegrees * Math.PI / 180.0);
+        var assistFactor = opportunity.AssistType switch
+        {
+            ShotAssistType.ThroughBall => 1.12,
+            ShotAssistType.Cross => 0.82,
+            ShotAssistType.Cutback => 1.20,
+            ShotAssistType.LongPass => 0.90,
+            ShotAssistType.Rebound => 1.08,
+            _ => 1.0
+        };
+        var pressureFactor = 1.0 - 0.55 * opportunity.Pressure;
+        var situationFactor = opportunity.Situation switch
+        {
+            ShotSituation.CounterAttack => 1.08,
+            ShotSituation.SetPiece => 0.92,
+            ShotSituation.Penalty => 2.0,
+            _ => 1.0
+        };
+        var xg = 0.65 * distanceFactor * angleFactor * assistFactor * pressureFactor * situationFactor;
+        return Clamp(xg, 0.03, 0.65);
+    }
 
     /// <summary>Calculates Slice tactical incompatibilities as bounded intermediate-variable multipliers.</summary>
     public static TacticalTension CalculateTacticalTension(MatchTactics tactics)
