@@ -168,14 +168,115 @@ public enum MatchEventType
     Foul,
     PenaltyAwarded,
     Corner,
-    Other
+    Other,
+    SubstitutionFailed
+}
+
+public enum AutomaticSubstitutionMode { Slice, Mvp }
+public enum AutomaticSubstitutionFailureReason
+{
+    NoEligibleOutgoingPlayer, NoAvailableSubstitute, PlayerExpelled, PlayerInjured,
+    SubstitutionLimitReached, InvalidPosition, MissingEmergencyGoalkeeper
+}
+
+/// <summary>A pre-match automatic substitution instruction. Incoming players are selected only from the named bench player or matching position.</summary>
+public sealed class AutomaticSubstitutionRule
+{
+    public AutomaticSubstitutionRule(int minute, Position outgoingPosition, int? maximumFitness = null,
+        string? incomingPlayerId = null, string? emergencyGoalkeeperId = null)
+    {
+        Minute = minute is >= 60 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
+        OutgoingPosition = Enum.IsDefined(typeof(Position), outgoingPosition) ? outgoingPosition : throw new ArgumentOutOfRangeException(nameof(outgoingPosition));
+        MaximumFitness = maximumFitness is null or >= 0 and <= 100 ? maximumFitness : throw new ArgumentOutOfRangeException(nameof(maximumFitness));
+        IncomingPlayerId = incomingPlayerId;
+        EmergencyGoalkeeperId = emergencyGoalkeeperId;
+        if (incomingPlayerId is not null && string.IsNullOrWhiteSpace(incomingPlayerId)) throw new ArgumentException("Player id cannot be empty.", nameof(incomingPlayerId));
+        if (emergencyGoalkeeperId is not null && string.IsNullOrWhiteSpace(emergencyGoalkeeperId)) throw new ArgumentException("Player id cannot be empty.", nameof(emergencyGoalkeeperId));
+    }
+    public int Minute { get; }
+    public Position OutgoingPosition { get; }
+    public int? MaximumFitness { get; }
+    public string? IncomingPlayerId { get; }
+    /// <summary>Explicitly named outfield player permitted to take goal; no emergency keeper is inferred.</summary>
+    public string? EmergencyGoalkeeperId { get; }
+}
+
+public sealed class AutomaticSubstitutionFailure
+{
+    public AutomaticSubstitutionFailure(int minute, int ruleIndex, AutomaticSubstitutionFailureReason reason)
+    { Minute = minute; RuleIndex = ruleIndex; Reason = reason; }
+    public int Minute { get; }
+    public int RuleIndex { get; }
+    public AutomaticSubstitutionFailureReason Reason { get; }
+}
+
+/// <summary>Deterministic rule evaluator over current match events; each rule is attempted once when its configured minute is reached.</summary>
+public static class AutomaticSubstitutionEvaluator
+{
+    public static IReadOnlyList<MatchEvent> Evaluate(MatchTeamInput team, IReadOnlyList<AutomaticSubstitutionRule> rules,
+        IReadOnlyList<MatchEvent> events, int minute, AutomaticSubstitutionMode mode, int substitutionLimit = 5)
+    {
+        if (team is null) throw new ArgumentNullException(nameof(team));
+        if (rules is null) throw new ArgumentNullException(nameof(rules));
+        if (events is null) throw new ArgumentNullException(nameof(events));
+        if (minute is < 0 or > 120) throw new ArgumentOutOfRangeException(nameof(minute));
+        if (!Enum.IsDefined(typeof(AutomaticSubstitutionMode), mode)) throw new ArgumentOutOfRangeException(nameof(mode));
+        if (substitutionLimit < 0) throw new ArgumentOutOfRangeException(nameof(substitutionLimit));
+        var ruleLimit = mode == AutomaticSubstitutionMode.Slice ? 1 : 3;
+        if (rules.Count > ruleLimit) throw new ArgumentException($"This mode permits at most {ruleLimit} automatic rule(s).", nameof(rules));
+        var result = new List<MatchEvent>();
+        var processed = new HashSet<int>(events.Where(e => e.TeamId == team.TeamId && e.RuleIndex is not null).Select(e => e.RuleIndex!.Value));
+        var ejected = new HashSet<string>(events.Where(e => e.TeamId == team.TeamId && e.Type == MatchEventType.RedCard).Select(e => e.PlayerId!), StringComparer.Ordinal);
+        var injured = new HashSet<string>(events.Where(e => e.TeamId == team.TeamId && e.Type == MatchEventType.Injury).Select(e => e.PlayerId!), StringComparer.Ordinal);
+        var active = new Dictionary<string, MatchPlayerInput>(team.Starters.ToDictionary(p => p.PlayerId, StringComparer.Ordinal));
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var changes = events.Count(e => e.TeamId == team.TeamId && e.Type == MatchEventType.Substitution);
+        foreach (var existing in events.Where(e => e.TeamId == team.TeamId && e.Type == MatchEventType.Substitution))
+        { active.Remove(existing.PlayerId!); used.Add(existing.RelatedPlayerId!); }
+        foreach (var (rule, index) in rules.Select((rule, index) => (rule, index)))
+        {
+            if (rule is null) throw new ArgumentException("Rules cannot contain null.", nameof(rules));
+            if (rule.Minute > minute || processed.Contains(index)) continue;
+            processed.Add(index);
+            var candidates = active.Values.Where(p => p.Position == rule.OutgoingPosition &&
+                (rule.MaximumFitness is null || p.Fitness <= rule.MaximumFitness)).ToArray();
+            if (candidates.Length == 0) { result.Add(Failure(team.TeamId, minute, index, AutomaticSubstitutionFailureReason.NoEligibleOutgoingPlayer)); continue; }
+            var outgoing = candidates.FirstOrDefault(p => !ejected.Contains(p.PlayerId) && !injured.Contains(p.PlayerId));
+            if (outgoing is null)
+            {
+                var reason = candidates.All(p => ejected.Contains(p.PlayerId)) ? AutomaticSubstitutionFailureReason.PlayerExpelled : AutomaticSubstitutionFailureReason.PlayerInjured;
+                result.Add(Failure(team.TeamId, minute, index, reason)); continue;
+            }
+            if (changes >= substitutionLimit) { result.Add(Failure(team.TeamId, minute, index, AutomaticSubstitutionFailureReason.SubstitutionLimitReached)); continue; }
+            MatchPlayerInput? incoming = null;
+            if (rule.IncomingPlayerId is not null) incoming = team.Substitutes.FirstOrDefault(p => p.PlayerId == rule.IncomingPlayerId && !used.Contains(p.PlayerId) && !ejected.Contains(p.PlayerId) && !injured.Contains(p.PlayerId));
+            else if (outgoing.Position == Position.Goalkeeper && rule.EmergencyGoalkeeperId is not null)
+                incoming = team.Substitutes.FirstOrDefault(p => p.PlayerId == rule.EmergencyGoalkeeperId && !used.Contains(p.PlayerId) && !ejected.Contains(p.PlayerId) && !injured.Contains(p.PlayerId));
+            else incoming = team.Substitutes.FirstOrDefault(p => p.Position == outgoing.Position && !used.Contains(p.PlayerId) && !ejected.Contains(p.PlayerId) && !injured.Contains(p.PlayerId));
+            if (incoming is null)
+            {
+                var failure = outgoing.Position == Position.Goalkeeper && rule.EmergencyGoalkeeperId is null
+                    ? AutomaticSubstitutionFailureReason.MissingEmergencyGoalkeeper : AutomaticSubstitutionFailureReason.NoAvailableSubstitute;
+                result.Add(Failure(team.TeamId, minute, index, failure)); continue;
+            }
+            if (incoming.Position != outgoing.Position && !(outgoing.Position == Position.Goalkeeper && incoming.PlayerId == rule.EmergencyGoalkeeperId))
+            { result.Add(Failure(team.TeamId, minute, index, incoming.Position == Position.Goalkeeper ? AutomaticSubstitutionFailureReason.InvalidPosition : AutomaticSubstitutionFailureReason.MissingEmergencyGoalkeeper)); continue; }
+            var substitution = new MatchEvent(minute, MatchEventType.Substitution, team.TeamId, outgoing.PlayerId, incoming.PlayerId, ruleIndex: index);
+            result.Add(substitution); active.Remove(outgoing.PlayerId); used.Add(incoming.PlayerId); changes++;
+        }
+        return Array.AsReadOnly(result.ToArray());
+    }
+
+    private static MatchEvent Failure(string teamId, int minute, int index, AutomaticSubstitutionFailureReason reason) =>
+        new(minute, MatchEventType.SubstitutionFailed, teamId, ruleIndex: index, failureReason: reason);
 }
 
 /// <summary>A single event in match chronology; text should be localized by consumers.</summary>
 public sealed class MatchEvent
 {
     public MatchEvent(int minute, MatchEventType type, string teamId,
-        string? playerId = null, string? relatedPlayerId = null, int injuryDays = 0)
+        string? playerId = null, string? relatedPlayerId = null, int injuryDays = 0,
+        int? ruleIndex = null, AutomaticSubstitutionFailureReason? failureReason = null)
     {
         Minute = minute is >= 0 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
         Type = Enum.IsDefined(typeof(MatchEventType), type) ? type : throw new ArgumentOutOfRangeException(nameof(type));
@@ -187,12 +288,20 @@ public sealed class MatchEvent
         InjuryDays = type == MatchEventType.Injury
             ? injuryDays == 0 ? 1 : injuryDays is >= 1 and <= 30 ? injuryDays : throw new ArgumentOutOfRangeException(nameof(injuryDays))
             : injuryDays == 0 ? 0 : throw new ArgumentException("Only injuries can carry recovery days.", nameof(injuryDays));
+        RuleIndex = type is MatchEventType.SubstitutionFailed or MatchEventType.Substitution
+            ? ruleIndex is >= 0 ? ruleIndex : throw new ArgumentOutOfRangeException(nameof(ruleIndex))
+            : ruleIndex is null ? null : throw new ArgumentException("Only failed substitutions carry a rule index.", nameof(ruleIndex));
+        FailureReason = type == MatchEventType.SubstitutionFailed
+            ? failureReason is not null && Enum.IsDefined(typeof(AutomaticSubstitutionFailureReason), failureReason.Value) ? failureReason : throw new ArgumentOutOfRangeException(nameof(failureReason))
+            : failureReason is null ? null : throw new ArgumentException("Only failed substitutions carry a failure reason.", nameof(failureReason));
         if (type is MatchEventType.Goal or MatchEventType.OwnGoal or MatchEventType.YellowCard or
             MatchEventType.RedCard or MatchEventType.Injury && string.IsNullOrWhiteSpace(playerId))
             throw new ArgumentException("This event requires a player id.", nameof(playerId));
         if (type == MatchEventType.Substitution &&
             (string.IsNullOrWhiteSpace(playerId) || string.IsNullOrWhiteSpace(relatedPlayerId)))
             throw new ArgumentException("A substitution requires outgoing and incoming player ids.", nameof(relatedPlayerId));
+        if (type == MatchEventType.SubstitutionFailed && (playerId is not null || relatedPlayerId is not null))
+            throw new ArgumentException("A failed substitution does not identify players.");
     }
 
     public int Minute { get; }
@@ -202,6 +311,8 @@ public sealed class MatchEvent
     public string? RelatedPlayerId { get; }
     /// <summary>Recovery days for a simple Slice injury; zero for other events.</summary>
     public int InjuryDays { get; }
+    public int? RuleIndex { get; }
+    public AutomaticSubstitutionFailureReason? FailureReason { get; }
 }
 
 public enum PlayerAvailability { Disponible, Tocando, Lesionado }
