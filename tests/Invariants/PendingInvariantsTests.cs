@@ -5,8 +5,22 @@ namespace BT.Invariants;
 // Skip reasons name the GDD stage that introduces the system and makes the invariant executable.
 public sealed class PendingInvariantsTests
 {
-    [Fact(Skip = "Stage 10 — Match simulation and xG model")]
-    public void MatchProbabilitiesStayInUnitIntervalAndXgIsNotGoalProbability() => throw new System.NotImplementedException();
+    [Fact]
+    public void MatchProbabilitiesStayInUnitIntervalAndXgIsNotGoalProbability()
+    {
+        var parameters = BT.Core.ParamsConfig.Load(
+            System.IO.Path.Combine(System.AppContext.BaseDirectory, "config", "params.json"));
+        foreach (var xg in new[] { 0.03, 0.15, 0.65 })
+            foreach (var finishing in new[] { 1, 50, 99 })
+                foreach (var goalkeeper in new[] { 1, 50, 99 })
+                {
+                    var probability = BT.Core.Sim.SimulationFormulas.CalculateGoalProbability(
+                        xg, finishing, finishing, goalkeeper, goalkeeper, parameters);
+                    Assert.InRange(probability, 0.0, 1.0);
+                }
+        Assert.NotEqual(0.15, BT.Core.Sim.SimulationFormulas.CalculateGoalProbability(
+            0.15, 99, 99, 1, 1, parameters));
+    }
 
     [Fact(Skip = "Stage 4 — Player attributes, fitness and morale")]
     public void OvrIsUnaffectedByFitnessAndMoraleWhileEffectivePerformanceChanges() => throw new System.NotImplementedException();
