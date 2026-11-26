@@ -337,18 +337,24 @@ public sealed class PlayerInjuryState
 
 public sealed class MatchScorer
 {
-    public MatchScorer(string teamId, string playerId, int minute, bool isOwnGoal = false)
+    public MatchScorer(string teamId, string playerId, int minute, bool isOwnGoal = false, string? assisterId = null)
     {
         TeamId = string.IsNullOrWhiteSpace(teamId) ? throw new ArgumentException("A stable team id is required.", nameof(teamId)) : teamId;
         PlayerId = string.IsNullOrWhiteSpace(playerId) ? throw new ArgumentException("A stable player id is required.", nameof(playerId)) : playerId;
         Minute = minute is >= 0 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
         IsOwnGoal = isOwnGoal;
+        if (isOwnGoal && assisterId is not null) throw new ArgumentException("An own goal cannot have an assister.", nameof(assisterId));
+        if (assisterId is not null && (string.IsNullOrWhiteSpace(assisterId) || assisterId == playerId))
+            throw new ArgumentException("An assister must be a different player with a stable id.", nameof(assisterId));
+        AssisterId = assisterId;
     }
 
     public string TeamId { get; }
     public string PlayerId { get; }
     public int Minute { get; }
     public bool IsOwnGoal { get; }
+    /// <summary>Player credited with the final pass; null for unassisted goals and own goals.</summary>
+    public string? AssisterId { get; }
 }
 
 public sealed class MatchScore
@@ -541,4 +547,46 @@ public sealed class MatchReport
     public IReadOnlyList<MatchEvent> Injuries { get; }
     public MatchTeamReport Home { get; }
     public MatchTeamReport Away { get; }
+
+    /// <summary>Creates the compact result used for simulated matches outside the user's fixture.</summary>
+    public HeadlessMatchResult ToHeadlessResult() => new(this);
+}
+
+/// <summary>Compact match outcome without the full event chronology or team statistics.</summary>
+public sealed class HeadlessMatchResult
+{
+    internal HeadlessMatchResult(MatchReport report)
+    {
+        if (report is null) throw new ArgumentNullException(nameof(report));
+        Score = report.Score;
+        Goalscorers = report.Goalscorers;
+        Assists = Array.AsReadOnly(report.Goalscorers.Where(goal => goal.AssisterId is not null)
+            .Select(goal => new MatchAssist(goal.TeamId, goal.AssisterId!, goal.Minute)).ToArray());
+        Cards = report.Cards;
+        Injuries = report.Injuries;
+        HomeForm = report.Home.Ratings;
+        AwayForm = report.Away.Ratings;
+    }
+
+    public MatchScore Score { get; }
+    public IReadOnlyList<MatchScorer> Goalscorers { get; }
+    public IReadOnlyList<MatchAssist> Assists { get; }
+    public IReadOnlyList<MatchEvent> Cards { get; }
+    public IReadOnlyList<MatchEvent> Injuries { get; }
+    /// <summary>Player match ratings consumed by the career layer to update form.</summary>
+    public IReadOnlyList<MatchPlayerRating> HomeForm { get; }
+    public IReadOnlyList<MatchPlayerRating> AwayForm { get; }
+}
+
+public sealed class MatchAssist
+{
+    public MatchAssist(string teamId, string playerId, int minute)
+    {
+        TeamId = string.IsNullOrWhiteSpace(teamId) ? throw new ArgumentException("A stable team id is required.", nameof(teamId)) : teamId;
+        PlayerId = string.IsNullOrWhiteSpace(playerId) ? throw new ArgumentException("A stable player id is required.", nameof(playerId)) : playerId;
+        Minute = minute is >= 0 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
+    }
+    public string TeamId { get; }
+    public string PlayerId { get; }
+    public int Minute { get; }
 }
