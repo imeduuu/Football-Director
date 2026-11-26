@@ -52,6 +52,9 @@ public sealed class ParamsConfigTests
         Assert.Equal(1.00, config.EffectivePerformance.CohesionFactor);
         Assert.Equal(1.00, config.EffectivePerformance.RelationsFactor);
         Assert.Equal(1.00, config.EffectivePerformance.TacticalFamiliarityFactor);
+        Assert.Equal(15, config.MatchSimulation.MaximumAddedTimeMinutesPerHalf);
+        Assert.Equal(1.0, config.MatchSimulation.FitnessIntensity);
+        Assert.Equal(1.08, config.MatchSimulation.PassingStyleMultipliers[BT.Core.Sim.PassingStyle.VeryShort]);
     }
 
     [Fact]
@@ -127,6 +130,18 @@ public sealed class ParamsConfigTests
         node["effectivePerformance"]!["totalFactorMinimum"] = 1.2;
         node["effectivePerformance"]!["totalFactorMaximum"] = 1.1;
         Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(node.ToJsonString()));
+    }
+
+    [Fact]
+    public void RejectsIncompleteOrInvalidMatchSimulationParameters()
+    {
+        var incompleteStyles = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        incompleteStyles["matchSimulation"]!["passingStyleMultipliers"]!.AsObject().Remove("Long");
+        Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(incompleteStyles.ToJsonString()));
+
+        var invalidAddedTime = JsonNode.Parse(File.ReadAllText(ParamsPath))!;
+        invalidAddedTime["matchSimulation"]!["maximumAddedTimeMinutesPerHalf"] = 31;
+        Assert.Throws<InvalidDataException>(() => ParamsConfig.LoadJson(invalidAddedTime.ToJsonString()));
     }
 
     [Fact]

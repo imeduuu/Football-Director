@@ -81,6 +81,21 @@
     "relationsFactor": 1.00,
     "tacticalFamiliarityFactor": 1.00
   },
+  "matchSimulation": {
+    "addedTimeMinutesPerGoal": 1.0,
+    "addedTimeMinutesPerInjury": 2.0,
+    "addedTimeMinutesPerSubstitution": 1.0,
+    "addedTimeMinutesPerOtherEvent": 0.25,
+    "maximumAddedTimeMinutesPerHalf": 15,
+    "fitnessIntensity": 1.0,
+    "passingStyleMultipliers": {
+      "VeryShort": 1.08,
+      "Short": 1.04,
+      "Mixed": 1.0,
+      "Direct": 0.96,
+      "Long": 0.92
+    }
+  },
   "attributeGeneration": {
     "minimum": 1,
     "maximum": 99,

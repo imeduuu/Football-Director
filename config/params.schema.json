@@ -4,7 +4,7 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "attributeGeneration", "squadGeneration", "worldGeneration"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "matchSimulation", "attributeGeneration", "squadGeneration", "worldGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
     "worldGeneration": { "type": "object", "additionalProperties": false,
@@ -138,6 +138,29 @@
         "cohesionFactor": { "type": "number", "exclusiveMinimum": 0 },
         "relationsFactor": { "type": "number", "exclusiveMinimum": 0 },
         "tacticalFamiliarityFactor": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "matchSimulation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["addedTimeMinutesPerGoal", "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent", "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers"],
+      "properties": {
+        "addedTimeMinutesPerGoal": { "type": "number", "minimum": 0 },
+        "addedTimeMinutesPerInjury": { "type": "number", "minimum": 0 },
+        "addedTimeMinutesPerSubstitution": { "type": "number", "minimum": 0 },
+        "addedTimeMinutesPerOtherEvent": { "type": "number", "minimum": 0 },
+        "maximumAddedTimeMinutesPerHalf": { "type": "integer", "minimum": 0, "maximum": 15 },
+        "fitnessIntensity": { "type": "number", "minimum": 0 },
+        "passingStyleMultipliers": {
+          "type": "object", "additionalProperties": false,
+          "required": ["VeryShort", "Short", "Mixed", "Direct", "Long"],
+          "properties": {
+            "VeryShort": { "type": "number", "exclusiveMinimum": 0 },
+            "Short": { "type": "number", "exclusiveMinimum": 0 },
+            "Mixed": { "type": "number", "exclusiveMinimum": 0 },
+            "Direct": { "type": "number", "exclusiveMinimum": 0 },
+            "Long": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
       }
     },
     "attributeGeneration": {

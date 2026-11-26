@@ -167,6 +167,50 @@ public static class SimulationFormulas
         return new ZoneStrengthGrid(cells);
     }
 
+    /// <summary>Calculates home possession from midfield strength and passing styles using GDD 10.4.</summary>
+    public static double CalculatePossession(double homeMidfieldStrength, PassingStyle homePassing,
+        double awayMidfieldStrength, PassingStyle awayPassing, ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        EnsureNonNegativeFinite(homeMidfieldStrength, nameof(homeMidfieldStrength));
+        EnsureNonNegativeFinite(awayMidfieldStrength, nameof(awayMidfieldStrength));
+        if (!Enum.IsDefined(typeof(PassingStyle), homePassing)) throw new ArgumentOutOfRangeException(nameof(homePassing));
+        if (!Enum.IsDefined(typeof(PassingStyle), awayPassing)) throw new ArgumentOutOfRangeException(nameof(awayPassing));
+
+        var multipliers = parameters.MatchSimulation.PassingStyleMultipliers;
+        var homeControl = homeMidfieldStrength * multipliers[homePassing];
+        var awayControl = awayMidfieldStrength * multipliers[awayPassing];
+        var totalControl = homeControl + awayControl;
+        if (!(totalControl > 0.0) || double.IsInfinity(totalControl))
+            throw new ArgumentException("Combined midfield control must be finite and positive.");
+        return homeControl / totalControl * 100.0;
+    }
+
+    /// <summary>Applies the GDD 4.5 match fitness loss for actual minutes played.</summary>
+    public static double UpdateMatchFitness(double fitness, double stamina, int minutesPlayed,
+        double intensity, ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        ValidateStatus(fitness, parameters.Fitness.Minimum, parameters.Fitness.Maximum, nameof(fitness));
+        if (!IsFinite(stamina) || stamina is < 1.0 or > 99.0)
+            throw new ArgumentOutOfRangeException(nameof(stamina), "Stamina must be finite and in [1,99].");
+        if (minutesPlayed is < 0 or > 120) throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
+        if (!IsFinite(intensity) || intensity < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(intensity), "Intensity must be finite and non-negative.");
+
+        var loss = (minutesPlayed / 90.0) * (28.0 - stamina / 6.0) * intensity;
+        return Clamp(fitness - loss, parameters.Fitness.Minimum, parameters.Fitness.Maximum);
+    }
+
+    /// <summary>Updates match fitness using the configured match intensity.</summary>
+    public static double UpdateMatchFitness(double fitness, double stamina, int minutesPlayed,
+        ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        return UpdateMatchFitness(fitness, stamina, minutesPlayed,
+            parameters.MatchSimulation.FitnessIntensity, parameters);
+    }
+
     /// <summary>Linearly interpolates between strictly increasing (x,y) nodes, extending endpoint values outside the node range.</summary>
     public static double LinearInterpolate(IReadOnlyList<(double X, double Y)> nodes, double x)
     {
@@ -224,6 +268,12 @@ public static class SimulationFormulas
     private static void EnsureFinite(double value, string parameterName)
     {
         if (!IsFinite(value)) throw new ArgumentOutOfRangeException(parameterName, "Value must be finite.");
+    }
+
+    private static void EnsureNonNegativeFinite(double value, string parameterName)
+    {
+        EnsureFinite(value, parameterName);
+        if (value < 0.0) throw new ArgumentOutOfRangeException(parameterName, "Value must be non-negative.");
     }
 
     private static void ValidatePitchCoordinate(double value, string parameterName)

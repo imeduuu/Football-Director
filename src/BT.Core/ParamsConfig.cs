@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using BT.Core.Domain;
+using BT.Core.Sim;
 using PlayerAttribute = BT.Core.Domain.Attribute;
 
 namespace BT.Core;
@@ -23,7 +24,7 @@ public sealed class ParamsConfig
         IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
         AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration,
         ExpectedPointsParams expectedPoints, PositionalFamiliarityParams positionalFamiliarity,
-        EffectivePerformanceParams effectivePerformance)
+        EffectivePerformanceParams effectivePerformance, MatchSimulationParams matchSimulation)
     {
         Version = version;
         Fitness = fitness;
@@ -35,6 +36,7 @@ public sealed class ParamsConfig
         ExpectedPoints = expectedPoints;
         PositionalFamiliarity = positionalFamiliarity;
         EffectivePerformance = effectivePerformance;
+        MatchSimulation = matchSimulation;
     }
 
     public string Version { get; }
@@ -47,6 +49,7 @@ public sealed class ParamsConfig
     public ExpectedPointsParams ExpectedPoints { get; }
     public PositionalFamiliarityParams PositionalFamiliarity { get; }
     public EffectivePerformanceParams EffectivePerformance { get; }
+    public MatchSimulationParams MatchSimulation { get; }
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
         new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
@@ -82,11 +85,12 @@ public sealed class ParamsConfig
         if (string.IsNullOrWhiteSpace(json)) throw new ArgumentException("JSON content is required.", nameof(json));
         Dto dto;
         SquadGenerationParams squadGeneration;
+        MatchSimulationParams matchSimulation;
         try
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$");
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "worldGeneration");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "matchSimulation", "worldGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -99,6 +103,10 @@ public sealed class ParamsConfig
             EnsureRequiredProperties(root.GetProperty("effectivePerformance"), "fitnessNeutral", "fitnessDeclinePerPoint",
                 "fitnessMinimumFactor", "moraleBaseFactor", "moraleRangeFactor", "softFactorMinimum", "softFactorMaximum",
                 "totalFactorMinimum", "totalFactorMaximum", "cohesionFactor", "relationsFactor", "tacticalFamiliarityFactor");
+            EnsureRequiredProperties(root.GetProperty("matchSimulation"), "addedTimeMinutesPerGoal",
+                "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent",
+                "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers");
+            matchSimulation = ParseMatchSimulation(root.GetProperty("matchSimulation"));
             var generation = root.GetProperty("attributeGeneration");
             var squad = root.GetProperty("squadGeneration");
             EnsureRequiredProperties(squad, "minimumBandCoverage", "maxAttempts", "reputationMeanShift", "divisionMeanShift", "referenceReputation", "referenceDivisionLevel", "referenceOvr", "profiles");
@@ -155,7 +163,61 @@ public sealed class ParamsConfig
                 dto.EffectivePerformance.MoraleRangeFactor, dto.EffectivePerformance.SoftFactorMinimum,
                 dto.EffectivePerformance.SoftFactorMaximum, dto.EffectivePerformance.TotalFactorMinimum,
                 dto.EffectivePerformance.TotalFactorMaximum, dto.EffectivePerformance.CohesionFactor,
-                dto.EffectivePerformance.RelationsFactor, dto.EffectivePerformance.TacticalFamiliarityFactor));
+                dto.EffectivePerformance.RelationsFactor, dto.EffectivePerformance.TacticalFamiliarityFactor),
+            matchSimulation);
+    }
+
+    private static MatchSimulationParams ParseMatchSimulation(JsonElement element)
+    {
+        var multipliersElement = element.GetProperty("passingStyleMultipliers");
+        if (multipliersElement.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Invalid parameter configuration: passingStyleMultipliers must be an object.");
+        var multipliers = new Dictionary<PassingStyle, double>();
+        foreach (var property in multipliersElement.EnumerateObject())
+        {
+            if (!property.Value.TryGetDouble(out var multiplier))
+                throw new InvalidDataException($"Invalid parameter configuration: passing-style multiplier '{property.Name}' must be numeric.");
+            if (!Enum.TryParse(property.Name, false, out PassingStyle style) ||
+                !Enum.IsDefined(typeof(PassingStyle), style) ||
+                !multipliers.TryAdd(style, multiplier))
+                throw new InvalidDataException($"Invalid parameter configuration: unknown or duplicate passing style '{property.Name}'.");
+        }
+
+        if (multipliers.Count != Enum.GetValues(typeof(PassingStyle)).Length ||
+            multipliers.Any(pair => !double.IsFinite(pair.Value) || pair.Value <= 0))
+            throw new InvalidDataException("Invalid parameter configuration: passingStyleMultipliers must define every passing style with a finite positive value.");
+
+        var addedTimePerGoal = ReadDouble(element.GetProperty("addedTimeMinutesPerGoal"), "addedTimeMinutesPerGoal");
+        var addedTimePerInjury = ReadDouble(element.GetProperty("addedTimeMinutesPerInjury"), "addedTimeMinutesPerInjury");
+        var addedTimePerSubstitution = ReadDouble(element.GetProperty("addedTimeMinutesPerSubstitution"), "addedTimeMinutesPerSubstitution");
+        var addedTimePerOtherEvent = ReadDouble(element.GetProperty("addedTimeMinutesPerOtherEvent"), "addedTimeMinutesPerOtherEvent");
+        var maximumAddedTime = ReadInt32(element.GetProperty("maximumAddedTimeMinutesPerHalf"), "maximumAddedTimeMinutesPerHalf");
+        var fitnessIntensity = ReadDouble(element.GetProperty("fitnessIntensity"), "fitnessIntensity");
+        if (!double.IsFinite(addedTimePerGoal) || addedTimePerGoal < 0 ||
+            !double.IsFinite(addedTimePerInjury) || addedTimePerInjury < 0 ||
+            !double.IsFinite(addedTimePerSubstitution) || addedTimePerSubstitution < 0 ||
+            !double.IsFinite(addedTimePerOtherEvent) || addedTimePerOtherEvent < 0 ||
+            maximumAddedTime < 0 || maximumAddedTime > 15 ||
+            !double.IsFinite(fitnessIntensity) || fitnessIntensity < 0)
+            throw new InvalidDataException("Invalid parameter configuration: matchSimulation values must be finite and non-negative, with added time capped at 15 minutes per half.");
+
+        return new MatchSimulationParams(addedTimePerGoal, addedTimePerInjury,
+            addedTimePerSubstitution, addedTimePerOtherEvent, maximumAddedTime, fitnessIntensity,
+            new ReadOnlyDictionary<PassingStyle, double>(multipliers));
+    }
+
+    private static double ReadDouble(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetDouble(out var value))
+            throw new InvalidDataException($"Invalid parameter configuration: '{propertyName}' must be numeric.");
+        return value;
+    }
+
+    private static int ReadInt32(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetInt32(out var value))
+            throw new InvalidDataException($"Invalid parameter configuration: '{propertyName}' must be an integer.");
+        return value;
     }
 
     private static SquadGenerationParams ParseSquadGeneration(JsonElement element)
@@ -444,6 +506,7 @@ public sealed class ParamsConfig
         public ExpectedPointsDto? ExpectedPoints { get; set; }
         public PositionalFamiliarityDto? PositionalFamiliarity { get; set; }
         public EffectivePerformanceDto? EffectivePerformance { get; set; }
+        public JsonElement MatchSimulation { get; set; }
     }
 
     private sealed class FitnessDto { public double Minimum { get; set; } public double Maximum { get; set; } public double PreseasonTarget { get; set; } }
@@ -647,6 +710,30 @@ public sealed class EffectivePerformanceParams
     public double CohesionFactor { get; }
     public double RelationsFactor { get; }
     public double TacticalFamiliarityFactor { get; }
+}
+public sealed class MatchSimulationParams
+{
+    internal MatchSimulationParams(double addedTimeMinutesPerGoal, double addedTimeMinutesPerInjury,
+        double addedTimeMinutesPerSubstitution, double addedTimeMinutesPerOtherEvent,
+        int maximumAddedTimeMinutesPerHalf, double fitnessIntensity,
+        IReadOnlyDictionary<PassingStyle, double> passingStyleMultipliers)
+    {
+        AddedTimeMinutesPerGoal = addedTimeMinutesPerGoal;
+        AddedTimeMinutesPerInjury = addedTimeMinutesPerInjury;
+        AddedTimeMinutesPerSubstitution = addedTimeMinutesPerSubstitution;
+        AddedTimeMinutesPerOtherEvent = addedTimeMinutesPerOtherEvent;
+        MaximumAddedTimeMinutesPerHalf = maximumAddedTimeMinutesPerHalf;
+        FitnessIntensity = fitnessIntensity;
+        PassingStyleMultipliers = passingStyleMultipliers;
+    }
+
+    public double AddedTimeMinutesPerGoal { get; }
+    public double AddedTimeMinutesPerInjury { get; }
+    public double AddedTimeMinutesPerSubstitution { get; }
+    public double AddedTimeMinutesPerOtherEvent { get; }
+    public int MaximumAddedTimeMinutesPerHalf { get; }
+    public double FitnessIntensity { get; }
+    public IReadOnlyDictionary<PassingStyle, double> PassingStyleMultipliers { get; }
 }
 public sealed class AttributeGenerationParams
 {

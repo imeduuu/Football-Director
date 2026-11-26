@@ -867,14 +867,22 @@ cada penalti usa FIN/SER del lanzador frente a POR/AGI, acotada con la
 misma función de la sección 10.6. Los goles de la tanda no cuentan en
 estadísticas individuales de goles.
 
+La máquina de estado separa primera parte, añadido, descanso, segunda
+parte, añadido y final. Cada parte reglamentaria contiene nueve intervalos.
+El añadido es el techo de la suma ponderada de goles, lesiones,
+sustituciones y otros eventos, limitado por parte; sus pesos e intensidad
+de FIT son parámetros de balance en `config/params.json`. La FIT se
+actualiza según minutos reales jugados con la fórmula de 4.5.
+
 ### 10.4 Zonas y posesión
 
 Se agregan atributos efectivos en defensa, mediocampo y ataque, y en
 carril izquierdo, central y derecho. La posesión inicial puede estimarse
 con la fuerza de mediocampo y el estilo de pase: Ppos(A) = \[ Zmed(A) ×
 Mpase(A) \] / \[ Zmed(A) × Mpase(A) + Zmed(B) × Mpase(B) \] La posesión
-no debe determinar por sí sola la calidad de las ocasiones. La
-progresión compara fuerza de ataque en el carril elegido contra defensa,
+no debe determinar por sí sola la calidad de las ocasiones. Los
+multiplicadores de pase por estilo se configuran en `config/params.json`.
+La progresión compara fuerza de ataque en el carril elegido contra defensa,
 cobertura, presión y espacio. \[v1.3·A\] Pertenencia suave a zonas. Con
 los cortes de la sección 6.2 (sectores en y = 35 y y = 70; carriles en x
 = 33 y x = 67) y semiancho de mezcla h = 5, cada jugador de campo aporta
