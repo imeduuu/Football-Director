@@ -14,6 +14,9 @@ public static class SimulationFormulas
     private const double ZoneBlendHalfWidth = 5.0;
     private const double TacticalTensionEffectCap = 0.12;
 
+    /// <summary>Player activity that determines daily fitness recovery.</summary>
+    public enum FitnessDailyActivity { Rest, LightTraining, NormalTraining, DoubleSession, Match }
+
     /// <summary>Calculates the GDD 10.10 post-match rating from match contributions.</summary>
     public static double CalculatePlayerRating(int minutes, int goals, int assists, int shotsOnTarget,
         double passAccuracy, int defensiveActionsWon, int saves, bool cleanSheet, int goalsConceded,
@@ -345,6 +348,35 @@ public static class SimulationFormulas
         if (parameters is null) throw new ArgumentNullException(nameof(parameters));
         return UpdateMatchFitness(fitness, stamina, minutesPlayed,
             parameters.MatchSimulation.FitnessIntensity, parameters);
+    }
+
+    /// <summary>Applies bounded GDD 4.5 daily fitness recovery using age, activity and medical bonuses.</summary>
+    public static double RecoverDailyFitness(double fitness, double stamina, int age,
+        FitnessDailyActivity activity, int medicalBonuses, ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        ValidateStatus(fitness, parameters.Fitness.Minimum, parameters.Fitness.Maximum, nameof(fitness));
+        if (!IsFinite(stamina) || stamina is < 1.0 or > 99.0)
+            throw new ArgumentOutOfRangeException(nameof(stamina), "Stamina must be finite and in [1,99].");
+        if (age < 0) throw new ArgumentOutOfRangeException(nameof(age));
+        if (!Enum.IsDefined(typeof(FitnessDailyActivity), activity)) throw new ArgumentOutOfRangeException(nameof(activity));
+        if (medicalBonuses < 0) throw new ArgumentOutOfRangeException(nameof(medicalBonuses));
+        if (activity == FitnessDailyActivity.Match) return fitness;
+
+        var ageFactor = parameters.AgeRecoveryFactors.First(band => band.MaximumAge is null || age <= band.MaximumAge.Value).Factor;
+        var activityFactor = activity switch
+        {
+            FitnessDailyActivity.Rest => 1.0,
+            FitnessDailyActivity.LightTraining => 0.65,
+            FitnessDailyActivity.NormalTraining => 0.40,
+            FitnessDailyActivity.DoubleSession => 0.20,
+            FitnessDailyActivity.Match => 0.0,
+            _ => throw new ArgumentOutOfRangeException(nameof(activity))
+        };
+        var recovery = Clamp((6.0 + 5.0 * stamina / 99.0) * ageFactor *
+            (1.0 + 0.015 * medicalBonuses) * activityFactor, 2.0, 11.0);
+        if (fitness > 90.0) recovery *= 0.5;
+        return Clamp(fitness + recovery, parameters.Fitness.Minimum, parameters.Fitness.Maximum);
     }
 
     /// <summary>Linearly interpolates between strictly increasing (x,y) nodes, extending endpoint values outside the node range.</summary>
