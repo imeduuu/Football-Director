@@ -165,6 +165,9 @@ public enum MatchEventType
     Substitution,
     PenaltyMiss,
     Shot,
+    Foul,
+    PenaltyAwarded,
+    Corner,
     Other
 }
 
@@ -172,7 +175,7 @@ public enum MatchEventType
 public sealed class MatchEvent
 {
     public MatchEvent(int minute, MatchEventType type, string teamId,
-        string? playerId = null, string? relatedPlayerId = null)
+        string? playerId = null, string? relatedPlayerId = null, int injuryDays = 0)
     {
         Minute = minute is >= 0 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
         Type = Enum.IsDefined(typeof(MatchEventType), type) ? type : throw new ArgumentOutOfRangeException(nameof(type));
@@ -181,6 +184,9 @@ public sealed class MatchEvent
             : teamId;
         PlayerId = playerId;
         RelatedPlayerId = relatedPlayerId;
+        InjuryDays = type == MatchEventType.Injury
+            ? injuryDays == 0 ? 1 : injuryDays is >= 1 and <= 30 ? injuryDays : throw new ArgumentOutOfRangeException(nameof(injuryDays))
+            : injuryDays == 0 ? 0 : throw new ArgumentException("Only injuries can carry recovery days.", nameof(injuryDays));
         if (type is MatchEventType.Goal or MatchEventType.OwnGoal or MatchEventType.YellowCard or
             MatchEventType.RedCard or MatchEventType.Injury && string.IsNullOrWhiteSpace(playerId))
             throw new ArgumentException("This event requires a player id.", nameof(playerId));
@@ -194,6 +200,28 @@ public sealed class MatchEvent
     public string TeamId { get; }
     public string? PlayerId { get; }
     public string? RelatedPlayerId { get; }
+    /// <summary>Recovery days for a simple Slice injury; zero for other events.</summary>
+    public int InjuryDays { get; }
+}
+
+public enum PlayerAvailability { Disponible, Tocando, Lesionado }
+
+/// <summary>Simple Slice availability state with calendar-day recovery.</summary>
+public sealed class PlayerInjuryState
+{
+    public PlayerInjuryState(PlayerAvailability availability = PlayerAvailability.Disponible, int daysRemaining = 0)
+    {
+        if (!Enum.IsDefined(typeof(PlayerAvailability), availability)) throw new ArgumentOutOfRangeException(nameof(availability));
+        if (daysRemaining < 0 || daysRemaining > 30 || (availability == PlayerAvailability.Disponible) != (daysRemaining == 0))
+            throw new ArgumentOutOfRangeException(nameof(daysRemaining));
+        Availability = availability;
+        DaysRemaining = daysRemaining;
+    }
+    public PlayerAvailability Availability { get; }
+    public int DaysRemaining { get; }
+    public PlayerInjuryState AdvanceDay() => DaysRemaining <= 1
+        ? new PlayerInjuryState()
+        : new PlayerInjuryState(Availability, DaysRemaining - 1);
 }
 
 public sealed class MatchScorer
