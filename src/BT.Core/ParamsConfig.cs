@@ -105,7 +105,8 @@ public sealed class ParamsConfig
                 "totalFactorMinimum", "totalFactorMaximum", "cohesionFactor", "relationsFactor", "tacticalFamiliarityFactor");
             EnsureRequiredProperties(root.GetProperty("matchSimulation"), "addedTimeMinutesPerGoal",
                 "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent",
-                "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers");
+                "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers",
+                "goalAttributeEffectPerPoint", "goalModifierMinimum", "goalModifierMaximum");
             matchSimulation = ParseMatchSimulation(root.GetProperty("matchSimulation"));
             var generation = root.GetProperty("attributeGeneration");
             var squad = root.GetProperty("squadGeneration");
@@ -193,17 +194,24 @@ public sealed class ParamsConfig
         var addedTimePerOtherEvent = ReadDouble(element.GetProperty("addedTimeMinutesPerOtherEvent"), "addedTimeMinutesPerOtherEvent");
         var maximumAddedTime = ReadInt32(element.GetProperty("maximumAddedTimeMinutesPerHalf"), "maximumAddedTimeMinutesPerHalf");
         var fitnessIntensity = ReadDouble(element.GetProperty("fitnessIntensity"), "fitnessIntensity");
+        var goalAttributeEffect = ReadDouble(element.GetProperty("goalAttributeEffectPerPoint"), "goalAttributeEffectPerPoint");
+        var goalModifierMinimum = ReadDouble(element.GetProperty("goalModifierMinimum"), "goalModifierMinimum");
+        var goalModifierMaximum = ReadDouble(element.GetProperty("goalModifierMaximum"), "goalModifierMaximum");
         if (!double.IsFinite(addedTimePerGoal) || addedTimePerGoal < 0 ||
             !double.IsFinite(addedTimePerInjury) || addedTimePerInjury < 0 ||
             !double.IsFinite(addedTimePerSubstitution) || addedTimePerSubstitution < 0 ||
             !double.IsFinite(addedTimePerOtherEvent) || addedTimePerOtherEvent < 0 ||
             maximumAddedTime < 0 || maximumAddedTime > 15 ||
-            !double.IsFinite(fitnessIntensity) || fitnessIntensity < 0)
-            throw new InvalidDataException("Invalid parameter configuration: matchSimulation values must be finite and non-negative, with added time capped at 15 minutes per half.");
+            !double.IsFinite(fitnessIntensity) || fitnessIntensity < 0 ||
+            !double.IsFinite(goalAttributeEffect) || goalAttributeEffect < 0 ||
+            !double.IsFinite(goalModifierMinimum) || goalModifierMinimum < 0 ||
+            !double.IsFinite(goalModifierMaximum) || goalModifierMaximum < goalModifierMinimum)
+            throw new InvalidDataException("Invalid parameter configuration: matchSimulation values must be finite and non-negative, added time must be capped at 15 minutes per half, and goal modifier bounds must be ordered.");
 
         return new MatchSimulationParams(addedTimePerGoal, addedTimePerInjury,
             addedTimePerSubstitution, addedTimePerOtherEvent, maximumAddedTime, fitnessIntensity,
-            new ReadOnlyDictionary<PassingStyle, double>(multipliers));
+            new ReadOnlyDictionary<PassingStyle, double>(multipliers), goalAttributeEffect,
+            goalModifierMinimum, goalModifierMaximum);
     }
 
     private static double ReadDouble(JsonElement element, string propertyName)
@@ -716,7 +724,8 @@ public sealed class MatchSimulationParams
     internal MatchSimulationParams(double addedTimeMinutesPerGoal, double addedTimeMinutesPerInjury,
         double addedTimeMinutesPerSubstitution, double addedTimeMinutesPerOtherEvent,
         int maximumAddedTimeMinutesPerHalf, double fitnessIntensity,
-        IReadOnlyDictionary<PassingStyle, double> passingStyleMultipliers)
+        IReadOnlyDictionary<PassingStyle, double> passingStyleMultipliers,
+        double goalAttributeEffectPerPoint, double goalModifierMinimum, double goalModifierMaximum)
     {
         AddedTimeMinutesPerGoal = addedTimeMinutesPerGoal;
         AddedTimeMinutesPerInjury = addedTimeMinutesPerInjury;
@@ -725,6 +734,9 @@ public sealed class MatchSimulationParams
         MaximumAddedTimeMinutesPerHalf = maximumAddedTimeMinutesPerHalf;
         FitnessIntensity = fitnessIntensity;
         PassingStyleMultipliers = passingStyleMultipliers;
+        GoalAttributeEffectPerPoint = goalAttributeEffectPerPoint;
+        GoalModifierMinimum = goalModifierMinimum;
+        GoalModifierMaximum = goalModifierMaximum;
     }
 
     public double AddedTimeMinutesPerGoal { get; }
@@ -734,6 +746,10 @@ public sealed class MatchSimulationParams
     public int MaximumAddedTimeMinutesPerHalf { get; }
     public double FitnessIntensity { get; }
     public IReadOnlyDictionary<PassingStyle, double> PassingStyleMultipliers { get; }
+    /// <summary>Modifier change per attribute point from the neutral value 50.</summary>
+    public double GoalAttributeEffectPerPoint { get; }
+    public double GoalModifierMinimum { get; }
+    public double GoalModifierMaximum { get; }
 }
 public sealed class AttributeGenerationParams
 {

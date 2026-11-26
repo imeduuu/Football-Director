@@ -53,6 +53,31 @@ public static class SimulationFormulas
         return Clamp(xg, 0.03, 0.65);
     }
 
+    /// <summary>Calculates goal probability from pre-finisher xG and the FIN/SER and POR/AGI attributes (GDD 10.6).</summary>
+    public static double CalculateGoalProbability(double expectedGoals, int finishing, int composure,
+        int goalkeeping, int agility, ParamsConfig parameters)
+    {
+        if (parameters is null) throw new ArgumentNullException(nameof(parameters));
+        EnsureFinite(expectedGoals, nameof(expectedGoals));
+        if (expectedGoals < 0.0) throw new ArgumentOutOfRangeException(nameof(expectedGoals));
+        ValidateGoalAttribute(finishing, nameof(finishing));
+        ValidateGoalAttribute(composure, nameof(composure));
+        ValidateGoalAttribute(goalkeeping, nameof(goalkeeping));
+        ValidateGoalAttribute(agility, nameof(agility));
+
+        var settings = parameters.MatchSimulation;
+        var finishingModifier = Clamp(1.0 + ((finishing + composure) / 2.0 - 50.0) * settings.GoalAttributeEffectPerPoint,
+            settings.GoalModifierMinimum, settings.GoalModifierMaximum);
+        var goalkeeperModifier = Clamp(1.0 - ((goalkeeping + agility) / 2.0 - 50.0) * settings.GoalAttributeEffectPerPoint,
+            settings.GoalModifierMinimum, settings.GoalModifierMaximum);
+        return Clamp(expectedGoals * finishingModifier * goalkeeperModifier, 0.0, 1.0);
+    }
+
+    private static void ValidateGoalAttribute(int value, string name)
+    {
+        if (value is < 1 or > 99) throw new ArgumentOutOfRangeException(name, "Attributes must be in [1,99].");
+    }
+
     /// <summary>Calculates Slice tactical incompatibilities as bounded intermediate-variable multipliers.</summary>
     public static TacticalTension CalculateTacticalTension(MatchTactics tactics)
     {

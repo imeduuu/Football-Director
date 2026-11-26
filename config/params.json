@@ -88,6 +88,9 @@
     "addedTimeMinutesPerOtherEvent": 0.25,
     "maximumAddedTimeMinutesPerHalf": 15,
     "fitnessIntensity": 1.0,
+    "goalAttributeEffectPerPoint": 0.005,
+    "goalModifierMinimum": 0.75,
+    "goalModifierMaximum": 1.25,
     "passingStyleMultipliers": {
       "VeryShort": 1.08,
       "Short": 1.04,
