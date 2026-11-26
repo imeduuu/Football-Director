@@ -50,6 +50,7 @@ public sealed class ParamsConfig
     public PositionalFamiliarityParams PositionalFamiliarity { get; }
     public EffectivePerformanceParams EffectivePerformance { get; }
     public MatchSimulationParams MatchSimulation { get; }
+    public PlayerRatingParams PlayerRating => MatchSimulation.PlayerRating;
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
         new ReadOnlyDictionary<PlayerAttribute, AttributeFamily>(new Dictionary<PlayerAttribute, AttributeFamily>
@@ -106,7 +107,7 @@ public sealed class ParamsConfig
             EnsureRequiredProperties(root.GetProperty("matchSimulation"), "addedTimeMinutesPerGoal",
                 "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent",
                 "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers",
-                "goalAttributeEffectPerPoint", "goalModifierMinimum", "goalModifierMaximum");
+                "goalAttributeEffectPerPoint", "goalModifierMinimum", "goalModifierMaximum", "playerRating");
             matchSimulation = ParseMatchSimulation(root.GetProperty("matchSimulation"));
             var generation = root.GetProperty("attributeGeneration");
             var squad = root.GetProperty("squadGeneration");
@@ -170,6 +171,8 @@ public sealed class ParamsConfig
 
     private static MatchSimulationParams ParseMatchSimulation(JsonElement element)
     {
+        var rating = element.GetProperty("playerRating");
+        EnsureRequiredProperties(rating, "base", "minimum", "maximum", "minutesMinimumScale", "goal", "goalCap", "assist", "assistCap", "shotOnTarget", "shotOnTargetCap", "passAccuracyTarget", "passAccuracyScale", "passAccuracyCap", "defensiveAction", "defensiveActionCap", "save", "saveCap", "cleanSheetGoalkeeper", "cleanSheetDefender", "cleanSheetMidfielder", "concededGoalGoalkeeper", "concededGoalDefender", "concededGoalMidfielder", "errorShot", "errorGoal", "yellowCard", "redCard", "penaltyConceded", "penaltyMissed", "win", "loss");
         var multipliersElement = element.GetProperty("passingStyleMultipliers");
         if (multipliersElement.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("Invalid parameter configuration: passingStyleMultipliers must be an object.");
@@ -211,7 +214,16 @@ public sealed class ParamsConfig
         return new MatchSimulationParams(addedTimePerGoal, addedTimePerInjury,
             addedTimePerSubstitution, addedTimePerOtherEvent, maximumAddedTime, fitnessIntensity,
             new ReadOnlyDictionary<PassingStyle, double>(multipliers), goalAttributeEffect,
-            goalModifierMinimum, goalModifierMaximum);
+            goalModifierMinimum, goalModifierMaximum, ParsePlayerRating(rating));
+    }
+
+    private static PlayerRatingParams ParsePlayerRating(JsonElement e)
+    {
+        double D(string name) => ReadDouble(e.GetProperty(name), name);
+        var p = new PlayerRatingParams(D("base"), D("minimum"), D("maximum"), D("minutesMinimumScale"), D("goal"), D("goalCap"), D("assist"), D("assistCap"), D("shotOnTarget"), D("shotOnTargetCap"), D("passAccuracyTarget"), D("passAccuracyScale"), D("passAccuracyCap"), D("defensiveAction"), D("defensiveActionCap"), D("save"), D("saveCap"), D("cleanSheetGoalkeeper"), D("cleanSheetDefender"), D("cleanSheetMidfielder"), D("concededGoalGoalkeeper"), D("concededGoalDefender"), D("concededGoalMidfielder"), D("errorShot"), D("errorGoal"), D("yellowCard"), D("redCard"), D("penaltyConceded"), D("penaltyMissed"), D("win"), D("loss"));
+        if (p.Minimum >= p.Maximum || p.Base < p.Minimum || p.Base > p.Maximum || p.MinutesMinimumScale < 0 || p.MinutesMinimumScale > 1 || p.All.Any(x => !double.IsFinite(x)) || new[] { p.GoalCap,p.AssistCap,p.ShotOnTargetCap,p.PassAccuracyCap,p.DefensiveActionCap,p.SaveCap }.Any(x => x < 0))
+            throw new InvalidDataException("Invalid parameter configuration: playerRating coefficients must be finite, caps non-negative, and rating bounds ordered.");
+        return p;
     }
 
     private static double ReadDouble(JsonElement element, string propertyName)
@@ -725,7 +737,7 @@ public sealed class MatchSimulationParams
         double addedTimeMinutesPerSubstitution, double addedTimeMinutesPerOtherEvent,
         int maximumAddedTimeMinutesPerHalf, double fitnessIntensity,
         IReadOnlyDictionary<PassingStyle, double> passingStyleMultipliers,
-        double goalAttributeEffectPerPoint, double goalModifierMinimum, double goalModifierMaximum)
+        double goalAttributeEffectPerPoint, double goalModifierMinimum, double goalModifierMaximum, PlayerRatingParams playerRating)
     {
         AddedTimeMinutesPerGoal = addedTimeMinutesPerGoal;
         AddedTimeMinutesPerInjury = addedTimeMinutesPerInjury;
@@ -737,6 +749,7 @@ public sealed class MatchSimulationParams
         GoalAttributeEffectPerPoint = goalAttributeEffectPerPoint;
         GoalModifierMinimum = goalModifierMinimum;
         GoalModifierMaximum = goalModifierMaximum;
+        PlayerRating = playerRating;
     }
 
     public double AddedTimeMinutesPerGoal { get; }
@@ -750,6 +763,30 @@ public sealed class MatchSimulationParams
     public double GoalAttributeEffectPerPoint { get; }
     public double GoalModifierMinimum { get; }
     public double GoalModifierMaximum { get; }
+    public PlayerRatingParams PlayerRating { get; }
+}
+
+public sealed class PlayerRatingParams
+{
+    internal PlayerRatingParams(params double[] values)
+    {
+        Base=values[0]; Minimum=values[1]; Maximum=values[2]; MinutesMinimumScale=values[3];
+        Goal=values[4]; GoalCap=values[5]; Assist=values[6]; AssistCap=values[7]; ShotOnTarget=values[8]; ShotOnTargetCap=values[9];
+        PassAccuracyTarget=values[10]; PassAccuracyScale=values[11]; PassAccuracyCap=values[12]; DefensiveAction=values[13]; DefensiveActionCap=values[14];
+        Save=values[15]; SaveCap=values[16]; CleanSheetGoalkeeper=values[17]; CleanSheetDefender=values[18]; CleanSheetMidfielder=values[19];
+        ConcededGoalGoalkeeper=values[20]; ConcededGoalDefender=values[21]; ConcededGoalMidfielder=values[22]; ErrorShot=values[23]; ErrorGoal=values[24];
+        YellowCard=values[25]; RedCard=values[26]; PenaltyConceded=values[27]; PenaltyMissed=values[28]; Win=values[29]; Loss=values[30];
+        All=values;
+    }
+    internal double[] All { get; }
+    public double Base { get; } public double Minimum { get; } public double Maximum { get; } public double MinutesMinimumScale { get; }
+    public double Goal { get; } public double GoalCap { get; } public double Assist { get; } public double AssistCap { get; }
+    public double ShotOnTarget { get; } public double ShotOnTargetCap { get; } public double PassAccuracyTarget { get; } public double PassAccuracyScale { get; } public double PassAccuracyCap { get; }
+    public double DefensiveAction { get; } public double DefensiveActionCap { get; } public double Save { get; } public double SaveCap { get; }
+    public double CleanSheetGoalkeeper { get; } public double CleanSheetDefender { get; } public double CleanSheetMidfielder { get; }
+    public double ConcededGoalGoalkeeper { get; } public double ConcededGoalDefender { get; } public double ConcededGoalMidfielder { get; }
+    public double ErrorShot { get; } public double ErrorGoal { get; } public double YellowCard { get; } public double RedCard { get; }
+    public double PenaltyConceded { get; } public double PenaltyMissed { get; } public double Win { get; } public double Loss { get; }
 }
 public sealed class AttributeGenerationParams
 {

@@ -142,7 +142,7 @@
     },
     "matchSimulation": {
       "type": "object", "additionalProperties": false,
-      "required": ["addedTimeMinutesPerGoal", "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent", "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers", "goalAttributeEffectPerPoint", "goalModifierMinimum", "goalModifierMaximum"],
+      "required": ["addedTimeMinutesPerGoal", "addedTimeMinutesPerInjury", "addedTimeMinutesPerSubstitution", "addedTimeMinutesPerOtherEvent", "maximumAddedTimeMinutesPerHalf", "fitnessIntensity", "passingStyleMultipliers", "goalAttributeEffectPerPoint", "goalModifierMinimum", "goalModifierMaximum", "playerRating"],
       "properties": {
         "addedTimeMinutesPerGoal": { "type": "number", "minimum": 0 },
         "addedTimeMinutesPerInjury": { "type": "number", "minimum": 0 },
@@ -153,6 +153,17 @@
         "goalAttributeEffectPerPoint": { "type": "number", "minimum": 0 },
         "goalModifierMinimum": { "type": "number", "minimum": 0 },
         "goalModifierMaximum": { "type": "number", "minimum": 0 },
+        "playerRating": { "type": "object", "additionalProperties": false,
+          "required": ["base", "minimum", "maximum", "minutesMinimumScale", "goal", "goalCap", "assist", "assistCap", "shotOnTarget", "shotOnTargetCap", "passAccuracyTarget", "passAccuracyScale", "passAccuracyCap", "defensiveAction", "defensiveActionCap", "save", "saveCap", "cleanSheetGoalkeeper", "cleanSheetDefender", "cleanSheetMidfielder", "concededGoalGoalkeeper", "concededGoalDefender", "concededGoalMidfielder", "errorShot", "errorGoal", "yellowCard", "redCard", "penaltyConceded", "penaltyMissed", "win", "loss"],
+          "properties": {
+            "base":{"type":"number"}, "minimum":{"type":"number"}, "maximum":{"type":"number"}, "minutesMinimumScale":{"type":"number","minimum":0,"maximum":1},
+            "goal":{"type":"number"}, "goalCap":{"type":"number","minimum":0}, "assist":{"type":"number"}, "assistCap":{"type":"number","minimum":0},
+            "shotOnTarget":{"type":"number"}, "shotOnTargetCap":{"type":"number","minimum":0}, "passAccuracyTarget":{"type":"number","minimum":0,"maximum":1}, "passAccuracyScale":{"type":"number"}, "passAccuracyCap":{"type":"number","minimum":0},
+            "defensiveAction":{"type":"number"}, "defensiveActionCap":{"type":"number","minimum":0}, "save":{"type":"number"}, "saveCap":{"type":"number","minimum":0},
+            "cleanSheetGoalkeeper":{"type":"number"}, "cleanSheetDefender":{"type":"number"}, "cleanSheetMidfielder":{"type":"number"}, "concededGoalGoalkeeper":{"type":"number"}, "concededGoalDefender":{"type":"number"}, "concededGoalMidfielder":{"type":"number"},
+            "errorShot":{"type":"number"}, "errorGoal":{"type":"number"}, "yellowCard":{"type":"number"}, "redCard":{"type":"number"}, "penaltyConceded":{"type":"number"}, "penaltyMissed":{"type":"number"}, "win":{"type":"number"}, "loss":{"type":"number"}
+          }
+        },
         "passingStyleMultipliers": {
           "type": "object", "additionalProperties": false,
           "required": ["VeryShort", "Short", "Mixed", "Direct", "Long"],

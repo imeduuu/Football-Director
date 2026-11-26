@@ -14,6 +14,37 @@ public static class SimulationFormulas
     private const double ZoneBlendHalfWidth = 5.0;
     private const double TacticalTensionEffectCap = 0.12;
 
+    /// <summary>Calculates the GDD 10.10 post-match rating from match contributions.</summary>
+    public static double CalculatePlayerRating(int minutes, int goals, int assists, int shotsOnTarget,
+        double passAccuracy, int defensiveActionsWon, int saves, bool cleanSheet, int goalsConceded,
+        int errorsLeadingToShot, int errorsLeadingToGoal, int yellowCards, int redCards,
+        int penaltiesConceded, int penaltiesMissed, int teamResult, Position position, PlayerRatingParams p)
+    {
+        if (p is null) throw new ArgumentNullException(nameof(p));
+        if (minutes is < 0 or > 120 || goals < 0 || assists < 0 || shotsOnTarget < 0 || defensiveActionsWon < 0 || saves < 0 || goalsConceded < 0 || errorsLeadingToShot < 0 || errorsLeadingToGoal < 0 || yellowCards < 0 || redCards < 0 || penaltiesConceded < 0 || penaltiesMissed < 0)
+            throw new ArgumentOutOfRangeException(nameof(minutes), "Minutes and match statistics must be non-negative and minutes cannot exceed 120.");
+        if (double.IsNaN(passAccuracy) || double.IsInfinity(passAccuracy) || passAccuracy is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(passAccuracy));
+        if (teamResult is < -1 or > 1) throw new ArgumentOutOfRangeException(nameof(teamResult));
+        if (!Enum.IsDefined(typeof(Position), position)) throw new ArgumentOutOfRangeException(nameof(position));
+        var isGoalkeeper = position == Position.Goalkeeper;
+        var isDefender = position is Position.CentreBack or Position.LeftBack or Position.RightBack;
+        var isMidfielder = position is Position.DefensiveMidfielder or Position.CentralMidfielder or Position.AttackingMidfielder;
+        var contribution = Cap(goals * p.Goal, p.GoalCap) + Cap(assists * p.Assist, p.AssistCap)
+            + Cap(shotsOnTarget * p.ShotOnTarget, p.ShotOnTargetCap)
+            + Clamp((passAccuracy - p.PassAccuracyTarget) * p.PassAccuracyScale, -p.PassAccuracyCap, p.PassAccuracyCap)
+            + Cap(defensiveActionsWon * p.DefensiveAction, p.DefensiveActionCap)
+            + (isGoalkeeper ? Cap(saves * p.Save, p.SaveCap) : 0)
+            + (cleanSheet ? (isGoalkeeper ? p.CleanSheetGoalkeeper : isDefender ? p.CleanSheetDefender : isMidfielder ? p.CleanSheetMidfielder : 0) : 0)
+            + goalsConceded * (isGoalkeeper ? p.ConcededGoalGoalkeeper : isDefender ? p.ConcededGoalDefender : isMidfielder ? p.ConcededGoalMidfielder : 0)
+            + errorsLeadingToShot * p.ErrorShot + errorsLeadingToGoal * p.ErrorGoal
+            + yellowCards * p.YellowCard + redCards * p.RedCard + penaltiesConceded * p.PenaltyConceded + penaltiesMissed * p.PenaltyMissed
+            + (teamResult == 1 ? p.Win : teamResult == -1 ? p.Loss : 0);
+        var scale = Clamp(minutes / 60.0, p.MinutesMinimumScale, 1.0);
+        return Clamp(p.Base + scale * contribution, p.Minimum, p.Maximum);
+    }
+
+    private static double Cap(double value, double maximum) => value < maximum ? value : maximum;
+
     /// <summary>Resolves whether an attack creates a shot, with a symmetric random adjustment to the defensive threshold.</summary>
     public static bool ProgressionCreatesShot(double progression, double defensiveThreshold,
         double variability, ref Pcg32 random)
@@ -30,8 +61,8 @@ public static class SimulationFormulas
     {
         if (opportunity is null) throw new ArgumentNullException(nameof(opportunity));
         // Distance and angle establish the baseline; context modifies it before final clamping.
-        var distanceFactor = Math.Exp(-opportunity.DistanceMetres / 18.0);
-        var angleFactor = 0.35 + 0.65 * Math.Cos(opportunity.AngleDegrees * Math.PI / 180.0);
+        var distanceFactor = DetMath.Exp(-opportunity.DistanceMetres / 18.0);
+        var angleFactor = 0.35 + 0.65 * DetMath.Cos(opportunity.AngleDegrees * 0.017453292519943295);
         var assistFactor = opportunity.AssistType switch
         {
             ShotAssistType.ThroughBall => 1.12,

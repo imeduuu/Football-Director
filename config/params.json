@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "1.4.0",
   "worldGeneration": {
     "generatorVersion": "1.4.0",
@@ -91,6 +91,18 @@
     "goalAttributeEffectPerPoint": 0.005,
     "goalModifierMinimum": 0.75,
     "goalModifierMaximum": 1.25,
+    "playerRating": {
+      "base": 6.5, "minimum": 3.0, "maximum": 10.0, "minutesMinimumScale": 0.25,
+      "goal": 0.9, "goalCap": 2.0, "assist": 0.5, "assistCap": 1.0,
+      "shotOnTarget": 0.05, "shotOnTargetCap": 0.2,
+      "passAccuracyTarget": 0.78, "passAccuracyScale": 1.0, "passAccuracyCap": 0.3,
+      "defensiveAction": 0.04, "defensiveActionCap": 0.4,
+      "save": 0.12, "saveCap": 0.8,
+      "cleanSheetGoalkeeper": 0.5, "cleanSheetDefender": 0.3, "cleanSheetMidfielder": 0.1,
+      "concededGoalGoalkeeper": -0.2, "concededGoalDefender": -0.1, "concededGoalMidfielder": -0.05,
+      "errorShot": -0.3, "errorGoal": -0.8, "yellowCard": -0.3, "redCard": -1.5,
+      "penaltyConceded": -0.5, "penaltyMissed": -0.6, "win": 0.2, "loss": -0.2
+    },
     "passingStyleMultipliers": {
       "VeryShort": 1.08,
       "Short": 1.04,
