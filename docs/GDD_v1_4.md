@@ -290,9 +290,11 @@ Veterano, RES 40, médicas 1, descanso
 5,1 Factor FIT: 1,00 si FIT ≥ 80; si FIT \< 80, factor = max(0,70; 1 −
 (80 − FIT) × 0,006). Se aplica al rendimiento efectivo, con intensidad
 proporcional y sin reducir OVR. El suelo de 0,70 se alcanza en FIT = 30.
-FactorMOR = 0,90 + (MOR / 100 × 0,20) MOR comienza en 70. Victoria +4,
-derrota −4, rendimiento individual superior a 7,5 +3 como valores base
-sujetos a contexto, límites y prevención de acumulaciones excesivas.
+FactorMOR = 0,90 + (MOR / 100 × 0,20). MOR comienza en 70. Tras cada
+partido, victoria suma 4 y derrota resta 4; un rating individual superior
+a 7,5 suma 3, mientras que el empate no modifica MOR por resultado. Se
+suman los modificadores aplicables una sola vez y se limita el resultado
+a [0,100].
 Moral afecta atributos técnicos y mentales mediante un factor entre
 0,90× y 1,10×. \[v1.3·R\] Nota de calibración. El punto neutro de
 FactorMOR es MOR = 50; con MOR inicial 70 todo jugador parte con ×1,04.

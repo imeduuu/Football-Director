@@ -225,7 +225,7 @@ Factor FIT: 1,00 si FIT ≥ 80; si FIT < 80, factor = max(0,70; 1 − (80 − FI
 
 FactorMOR = 0,90 + (MOR / 100 × 0,20) 
 
-MOR comienza en 70. Victoria +4, derrota −4, rendimiento individual superior a 7,5 +3 como valores base sujetos a contexto, límites y prevención de acumulaciones excesivas. Moral afecta atributos técnicos y mentales mediante un factor entre 0,90× y 1,10×. 
+MOR comienza en 70. Tras cada partido, una victoria suma 4 y una derrota resta 4; un rating individual superior a 7,5 suma 3, mientras que el empate no modifica MOR por resultado. Se suman los modificadores aplicables una sola vez y se limita el resultado a [0,100]. Moral afecta atributos técnicos y mentales mediante un factor entre 0,90× y 1,10×. 
 
 **[v1.3·R] Nota de calibración.** El punto neutro de FactorMOR es MOR = 50; con MOR inicial 70 todo jugador parte con ×1,04. Al ser simétrico entre clubes no desequilibra la liga, pero debe tenerse en cuenta al calibrar goles por partido (sección 19): las bandas se miden con la moral inicial real, no con un factor teórico de 1,00. 
 
