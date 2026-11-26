@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using BT.Core;
+using BT.Core.Domain;
 using BT.Core.Sim;
 using Xunit;
 
@@ -68,5 +69,96 @@ public sealed class SimulationFormulasTests
                     Assert.Equal(observation, SimulationFormulas.ExponentialMovingAverage(previous, observation, 1.0));
                 }
         Assert.Throws<ArgumentOutOfRangeException>(() => SimulationFormulas.ExponentialMovingAverage(0, 1, 1.1));
+    }
+
+    [Fact]
+    public void ZoneMembershipMatchesGddExamplesAndSumsToOneAcrossThePitch()
+    {
+        Assert.Equal(1.0, SimulationFormulas.WDef(25));
+        Assert.Equal(0.5, SimulationFormulas.WDef(35));
+        Assert.Equal(0.5, SimulationFormulas.WMed(35));
+        Assert.Equal(0.2, SimulationFormulas.WDef(38));
+        Assert.Equal(0.8, SimulationFormulas.WMed(38));
+        Assert.Equal(0.5, SimulationFormulas.WMed(70));
+        Assert.Equal(0.5, SimulationFormulas.WAta(70));
+        Assert.Equal(1.0, SimulationFormulas.WAta(78));
+
+        Assert.Equal(1.0, SimulationFormulas.WIzq(25));
+        Assert.Equal(0.5, SimulationFormulas.WIzq(33));
+        Assert.Equal(0.5, SimulationFormulas.WCen(33));
+        Assert.Equal(0.2, SimulationFormulas.WIzq(36));
+        Assert.Equal(0.8, SimulationFormulas.WCen(36));
+        Assert.Equal(0.5, SimulationFormulas.WCen(67));
+        Assert.Equal(0.5, SimulationFormulas.WDer(67));
+        Assert.Equal(1.0, SimulationFormulas.WDer(75));
+
+        for (var coordinate = 0; coordinate <= 100; coordinate++)
+        {
+            var sectorWeights = new[]
+            {
+                SimulationFormulas.WDef(coordinate),
+                SimulationFormulas.WMed(coordinate),
+                SimulationFormulas.WAta(coordinate)
+            };
+            var laneWeights = new[]
+            {
+                SimulationFormulas.WIzq(coordinate),
+                SimulationFormulas.WCen(coordinate),
+                SimulationFormulas.WDer(coordinate)
+            };
+            Assert.All(sectorWeights, weight => Assert.InRange(weight, 0.0, 1.0));
+            Assert.All(laneWeights, weight => Assert.InRange(weight, 0.0, 1.0));
+            Assert.Equal(1.0, sectorWeights[0] + sectorWeights[1] + sectorWeights[2], 12);
+            Assert.Equal(1.0, laneWeights[0] + laneWeights[1] + laneWeights[2], 12);
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => SimulationFormulas.WDef(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => SimulationFormulas.WDer(101));
+    }
+
+    [Fact]
+    public void ZonalStrengthsMirrorLanesAndExcludeGoalkeepers()
+    {
+        var players = new[]
+        {
+            new ZonalStrengthContribution(Position.LeftBack, 15, 25, 80),
+            new ZonalStrengthContribution(Position.Goalkeeper, 15, 25, 500)
+        };
+
+        var teamStrengths = SimulationFormulas.CalculateZonalStrengths(players);
+        var mirroredStrengths = SimulationFormulas.CalculateZonalStrengths(players, mirrorLanes: true);
+
+        Assert.Equal(80.0, teamStrengths[MatchZone.DefenceLeft]);
+        Assert.Equal(0.0, teamStrengths[MatchZone.DefenceRight]);
+        Assert.Equal(0.0, mirroredStrengths[MatchZone.DefenceLeft]);
+        Assert.Equal(80.0, mirroredStrengths[MatchZone.DefenceRight]);
+        Assert.Equal(80.0, Sum(teamStrengths.Cells), 12);
+        Assert.Equal(80.0, Sum(mirroredStrengths.Cells), 12);
+        Assert.Equal(80.0, Sum(SimulationFormulas.CalculateZonalStrengths(
+            new[] { players[0] }).Cells), 12);
+        Assert.Equal(85.0, SimulationFormulas.MirrorLaneX(15));
+    }
+
+    [Fact]
+    public void ZonalStrengthsMultiplySectorAndLaneMembershipWeights()
+    {
+        var strengths = SimulationFormulas.CalculateZonalStrengths(new[]
+        {
+            new ZonalStrengthContribution(Position.CentralMidfielder, 33, 35, 100)
+        });
+
+        Assert.Equal(25.0, strengths[MatchZone.DefenceLeft]);
+        Assert.Equal(25.0, strengths[MatchZone.DefenceCentre]);
+        Assert.Equal(25.0, strengths[MatchZone.MidfieldLeft]);
+        Assert.Equal(25.0, strengths[MatchZone.MidfieldCentre]);
+        Assert.Equal(0.0, strengths[MatchZone.AttackLeft]);
+        Assert.Equal(100.0, Sum(strengths.Cells), 12);
+    }
+
+    private static double Sum(System.Collections.Generic.IReadOnlyList<double> values)
+    {
+        var total = 0.0;
+        for (var index = 0; index < values.Count; index++) total += values[index];
+        return total;
     }
 }

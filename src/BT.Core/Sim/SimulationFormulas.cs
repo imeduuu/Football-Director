@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using BT.Core;
+using BT.Core.Domain;
 
 namespace BT.Core.Sim;
 
 /// <summary>Deterministic formulas used by world and career simulation systems.</summary>
 public static class SimulationFormulas
 {
+    private const double ZoneBlendHalfWidth = 5.0;
+
     /// <summary>Clamps a finite value to an inclusive finite range.</summary>
     public static double Clamp(double value, double minimum, double maximum)
     {
@@ -17,6 +20,89 @@ public static class SimulationFormulas
         if (value < minimum) return minimum;
         if (value > maximum) return maximum;
         return value;
+    }
+
+    /// <summary>Returns the smooth membership weight for the defensive sector from GDD 10.4.</summary>
+    public static double WDef(double y)
+    {
+        ValidatePitchCoordinate(y, nameof(y));
+        return Clamp((35.0 + ZoneBlendHalfWidth - y) / (2.0 * ZoneBlendHalfWidth), 0.0, 1.0);
+    }
+
+    /// <summary>Returns the smooth membership weight for the midfield sector from GDD 10.4.</summary>
+    public static double WMed(double y)
+    {
+        ValidatePitchCoordinate(y, nameof(y));
+        return 1.0 - WDef(y) - WAta(y);
+    }
+
+    /// <summary>Returns the smooth membership weight for the attacking sector from GDD 10.4.</summary>
+    public static double WAta(double y)
+    {
+        ValidatePitchCoordinate(y, nameof(y));
+        return Clamp((y - (70.0 - ZoneBlendHalfWidth)) / (2.0 * ZoneBlendHalfWidth), 0.0, 1.0);
+    }
+
+    /// <summary>Returns the smooth membership weight for the left lane from GDD 10.4.</summary>
+    public static double WIzq(double x)
+    {
+        ValidatePitchCoordinate(x, nameof(x));
+        return Clamp((33.0 + ZoneBlendHalfWidth - x) / (2.0 * ZoneBlendHalfWidth), 0.0, 1.0);
+    }
+
+    /// <summary>Returns the smooth membership weight for the centre lane from GDD 10.4.</summary>
+    public static double WCen(double x)
+    {
+        ValidatePitchCoordinate(x, nameof(x));
+        return 1.0 - WIzq(x) - WDer(x);
+    }
+
+    /// <summary>Returns the smooth membership weight for the right lane from GDD 10.4.</summary>
+    public static double WDer(double x)
+    {
+        ValidatePitchCoordinate(x, nameof(x));
+        return Clamp((x - (67.0 - ZoneBlendHalfWidth)) / (2.0 * ZoneBlendHalfWidth), 0.0, 1.0);
+    }
+
+    /// <summary>Reflects a team-relative lane coordinate when comparing opposing teams.</summary>
+    public static double MirrorLaneX(double x)
+    {
+        ValidatePitchCoordinate(x, nameof(x));
+        return 100.0 - x;
+    }
+
+    /// <summary>
+    /// Distributes each outfield player's effective strength over the nine pitch zones.
+    /// Set <paramref name="mirrorLanes"/> when calculating the opposing team's perspective.
+    /// </summary>
+    public static ZoneStrengthGrid CalculateZonalStrengths(
+        IReadOnlyList<ZonalStrengthContribution> contributions, bool mirrorLanes = false)
+    {
+        if (contributions is null) throw new ArgumentNullException(nameof(contributions));
+
+        var cells = new double[9];
+        var sectorWeights = new double[3];
+        var laneWeights = new double[3];
+        for (var index = 0; index < contributions.Count; index++)
+        {
+            var contribution = contributions[index];
+            if (contribution is null)
+                throw new ArgumentException("Strength contributions cannot contain null entries.", nameof(contributions));
+            if (contribution.Position == Position.Goalkeeper) continue;
+
+            var x = mirrorLanes ? MirrorLaneX(contribution.X) : contribution.X;
+            sectorWeights[0] = WDef(contribution.Y);
+            sectorWeights[1] = WMed(contribution.Y);
+            sectorWeights[2] = WAta(contribution.Y);
+            laneWeights[0] = WIzq(x);
+            laneWeights[1] = WCen(x);
+            laneWeights[2] = WDer(x);
+            for (var sector = 0; sector < sectorWeights.Length; sector++)
+                for (var lane = 0; lane < laneWeights.Length; lane++)
+                    cells[sector * 3 + lane] += contribution.Strength * sectorWeights[sector] * laneWeights[lane];
+        }
+
+        return new ZoneStrengthGrid(cells);
     }
 
     /// <summary>Linearly interpolates between strictly increasing (x,y) nodes, extending endpoint values outside the node range.</summary>
@@ -76,6 +162,13 @@ public static class SimulationFormulas
     private static void EnsureFinite(double value, string parameterName)
     {
         if (!IsFinite(value)) throw new ArgumentOutOfRangeException(parameterName, "Value must be finite.");
+    }
+
+    private static void ValidatePitchCoordinate(double value, string parameterName)
+    {
+        EnsureFinite(value, parameterName);
+        if (value < 0.0 || value > 100.0)
+            throw new ArgumentOutOfRangeException(parameterName, "Pitch coordinates must be in [0, 100].");
     }
 
     private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
