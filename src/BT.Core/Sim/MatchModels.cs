@@ -626,7 +626,7 @@ public sealed class MatchReport
         IReadOnlyList<MatchEvent> events, MatchTeamReport home, MatchTeamReport away,
         int durationMinutes = 90, PenaltyShootoutState? shootout = null,
         ulong seed = 0, EngineVersion engineVersion = EngineVersion.V10_10,
-        MatchScore? regulationScore = null)
+        MatchScore? regulationScore = null, double fitnessIntensity = 1.0)
     {
         Score = score ?? throw new ArgumentNullException(nameof(score));
         RegulationScore = regulationScore ?? score;
@@ -640,6 +640,8 @@ public sealed class MatchReport
         Seed = seed;
         EngineVersion = Enum.IsDefined(typeof(EngineVersion), engineVersion)
             ? engineVersion : throw new ArgumentOutOfRangeException(nameof(engineVersion));
+        FitnessIntensity = double.IsFinite(fitnessIntensity) && fitnessIntensity >= 0
+            ? fitnessIntensity : throw new ArgumentOutOfRangeException(nameof(fitnessIntensity));
 
         var scorerSnapshot = goalscorers.ToArray();
         if (scorerSnapshot.Any(scorer => scorer is null))
@@ -673,6 +675,8 @@ public sealed class MatchReport
     public PenaltyShootoutResult? Shootout { get; }
     public ulong Seed { get; }
     public EngineVersion EngineVersion { get; }
+    /// <summary>Configured match load intensity used when applying post-match fitness effects.</summary>
+    public double FitnessIntensity { get; }
 
     /// <summary>Creates the compact result used for simulated matches outside the user's fixture.</summary>
     public HeadlessMatchResult ToHeadlessResult() => new(this);

@@ -85,10 +85,55 @@ public sealed class SqliteMatchdayStoreTests
             var reports=result.Matches.Select(match=>match.Report ?? match.Headless!.Report).ToArray();
             Assert.Equal(reports.Sum(report=>(long)report.Injuries.Count),Convert.ToInt64(Scalar(save.Connection,"SELECT count(*) FROM player_match_injuries;")));
             Assert.Equal(reports.SelectMany(report=>report.Injuries).Select(injury=>injury.PlayerId).Distinct(StringComparer.Ordinal).Count(),Convert.ToInt32(Scalar(save.Connection,"SELECT count(*) FROM player_availability;")));
+            Assert.Equal(0L, Scalar(save.Connection,"SELECT count(*) FROM player_availability a JOIN player_match_injuries i ON i.match_id=a.injury_match_id AND i.event_no=a.injury_event_no WHERE a.days_remaining<>i.recovery_days;"));
             Assert.Equal(reports.SelectMany(report=>report.Cards).Select(card=>card.PlayerId).Distinct(StringComparer.Ordinal).Count(),Convert.ToInt32(Scalar(save.Connection,"SELECT count(*) FROM player_discipline;")));
             Assert.Equal(0L, Scalar(save.Connection, "SELECT count(*) FROM player_discipline WHERE discipline_id='' OR source_competition_id='' OR rules_package_id='';"));
             Assert.Equal(0L, Scalar(save.Connection, "SELECT count(*) FROM player_discipline WHERE rules_package_id<>'slice-league' OR rule_version<>'1.0.0';"));
             Assert.True(Convert.ToInt32(Scalar(save.Connection,"SELECT min(fit) FROM players;"))<100);
+        });
+    }
+
+    [Fact]
+    public void MatchdayAppliesConfiguredFitnessAndResultAndRatingMoraleOnlyToAppearances()
+    {
+        WithSave(save =>
+        {
+            SeedMatchday(save.Connection);
+            var result = RunMatchday(save.Connection);
+            foreach (var match in result.Matches)
+            {
+                var report = match.Report ?? match.Headless!.Report;
+                foreach (var (club, team, ownGoals, opponentGoals) in new[]
+                {
+                    (match.Fixture.HomeClubId, report.Home, report.Score.HomeGoals, report.Score.AwayGoals),
+                    (match.Fixture.AwayClubId, report.Away, report.Score.AwayGoals, report.Score.HomeGoals)
+                })
+                {
+                foreach (var appearance in team.Ratings)
+                {
+                    using var q = save.Connection.CreateCommand();
+                    q.CommandText = @"SELECT p.fit,p.morale,p.ovr,a.value,s.fitness,s.morale FROM players p
+JOIN fixture_match_player_attributes a ON a.fixture_id=$fixture AND a.club_id=p.club_id AND a.player_id=p.player_id AND a.attribute='Stamina'
+JOIN fixture_match_players s ON s.fixture_id=a.fixture_id AND s.club_id=a.club_id AND s.player_id=a.player_id
+WHERE p.player_id=$player AND p.club_id=$club;";
+                    q.Parameters.AddWithValue("$fixture", match.Fixture.MatchId);
+                    q.Parameters.AddWithValue("$player", appearance.PlayerId); q.Parameters.AddWithValue("$club", club);
+                    using var reader = q.ExecuteReader(); Assert.True(reader.Read());
+                    var fit = reader.GetInt32(0); var morale = reader.GetInt32(1); var ovr = reader.GetInt32(2); var stamina = reader.GetInt32(3);
+                    var originalFit = reader.GetInt32(4); var originalMorale = reader.GetInt32(5);
+                    var expectedFit = Math.Clamp((int)Math.Round(originalFit - appearance.MinutesPlayed / 90.0 * (28 - stamina / 6.0) * report.FitnessIntensity, MidpointRounding.AwayFromZero), 0, 100);
+                    var delta = ownGoals > opponentGoals ? 4 : ownGoals < opponentGoals ? -4 : 0;
+                    if (appearance.Rating > 7.5) delta += 3;
+                    Assert.Equal(expectedFit, fit);
+                    Assert.Equal(Math.Clamp(originalMorale + delta, 0, 100), morale);
+                    Assert.Equal(60, ovr);
+                    Assert.InRange(fit, 0, 100); Assert.InRange(morale, 0, 100);
+                }
+                Assert.DoesNotContain(team.Ratings, rating => rating.PlayerId.EndsWith("bench", StringComparison.Ordinal));
+                }
+            }
+            Assert.Equal(0L, Scalar(save.Connection, "SELECT count(*) FROM match_appearances a JOIN fixture_match_players p ON p.fixture_id=a.match_id AND p.player_id=a.player_id WHERE p.is_starter=0;"));
+            Assert.Equal(4L, Scalar(save.Connection, "SELECT count(*) FROM fixture_match_players p JOIN players x ON x.player_id=p.player_id WHERE p.is_starter=0 AND x.fit=100 AND x.morale=60 AND NOT EXISTS(SELECT 1 FROM match_appearances a WHERE a.match_id=p.fixture_id AND a.player_id=p.player_id);"));
         });
     }
 
@@ -151,11 +196,14 @@ INSERT INTO standings(season_id,club_id,played,won,drawn,lost,goals_for,goals_ag
                 var players=new MatchPlayerInput[11];
                 for(var i=0;i<11;i++)
                 {
-                    var id=prefix+side+i; players[i]=new MatchPlayerInput(id,points[i].Position,attributes,85,60);
+                    var id=prefix+side+i; players[i]=new MatchPlayerInput(id,points[i].Position,attributes,i==0?0:85,100);
                     using var insert=connection.CreateCommand(); insert.CommandText="INSERT INTO players(player_id,club_id,full_name,age,nationality,position,ovr,fit,morale) VALUES($id,$club,$name,24,'Lumenia',$position,60,100,60);";
                     insert.Parameters.AddWithValue("$id",id);insert.Parameters.AddWithValue("$club",club);insert.Parameters.AddWithValue("$name",id);insert.Parameters.AddWithValue("$position",DbPosition(points[i].Position));insert.ExecuteNonQuery();
                 }
-                return new MatchTeamInput(club,players,Array.Empty<MatchPlayerInput>(),new MatchTactics("4-3-3",TacticalMentality.Balanced,PassingStyle.Mixed,PressingStyle.Medium,DefensiveLine.Normal,TeamWidth.Normal));
+                var substituteId=prefix+side+"bench";
+                using(var insert=connection.CreateCommand()) { insert.CommandText="INSERT INTO players(player_id,club_id,full_name,age,nationality,position,ovr,fit,morale) VALUES($id,$club,$name,24,'Lumenia','ST',60,100,60);"; insert.Parameters.AddWithValue("$id",substituteId); insert.Parameters.AddWithValue("$club",club); insert.Parameters.AddWithValue("$name",substituteId); insert.ExecuteNonQuery(); }
+                var substitute=new MatchPlayerInput(substituteId,Position.Striker,attributes,85,60);
+                return new MatchTeamInput(club,players,new[]{substitute},new MatchTactics("4-3-3",TacticalMentality.Balanced,PassingStyle.Mixed,PressingStyle.Medium,DefensiveLine.Normal,TeamWidth.Normal));
             }
             var seed=SeedDeriver.MatchSeed(123,"league",1,1,fixture);
             var input=new MatchInput(Team(home,"h"),Team(away,"v"),seed,EngineVersion.V10_10);

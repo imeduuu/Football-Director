@@ -94,7 +94,7 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         scorers.Sort((left, right) => left.Minute != right.Minute
             ? left.Minute.CompareTo(right.Minute) : StringComparer.Ordinal.Compare(left.PlayerId, right.PlayerId));
         return new MatchReport(score, scorers, events, homeReport, awayReport, appearances.DurationMinutes, shootout,
-            input.Seed, input.EngineVersion, regulationScore);
+            input.Seed, input.EngineVersion, regulationScore, _parameters.MatchSimulation.FitnessIntensity);
     }
 
     private void ResolveAddedTime(MatchState state, int half, MatchInput input,
