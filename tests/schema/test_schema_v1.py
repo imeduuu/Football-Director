@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / "docs" / "schema_v1.sql"
+MATCHDAY_MIGRATION = ROOT / "docs" / "migrations" / "002_matchday_closure.sql"
 
 
 class SchemaV1Tests(unittest.TestCase):
@@ -135,6 +136,37 @@ class SchemaV1Tests(unittest.TestCase):
             self.assertEqual([], reopened.execute("PRAGMA foreign_key_check").fetchall())
             self.assertEqual("ok", reopened.execute("PRAGMA integrity_check").fetchone()[0])
             reopened.close()
+
+    def test_matchday_migration_preserves_v1_and_adds_authoritative_history(self):
+        self.connection.execute(
+            "INSERT INTO matches (match_id, fixture_id, home_club_id, away_club_id, home_score, away_score, "
+            "seed, engine_version, rules_version, home_xg, away_xg) "
+            "VALUES ('match-1', 'fixture-1', 'home', 'away', 1, 0, '9', '1010', '1', 0.8, 0.2)"
+        )
+        self.connection.execute(
+            "INSERT INTO match_events (match_id, event_no, minute, event_type, club_id, player_id) "
+            "VALUES ('match-1', 1, 10, 'goal', 'home', 'p-home')"
+        )
+        self.connection.commit()
+        self.connection.executescript(MATCHDAY_MIGRATION.read_text(encoding="utf-8"))
+
+        self.assertEqual((1, 0), self.connection.execute(
+            "SELECT home_score, away_score FROM matches WHERE fixture_id='fixture-1'"
+        ).fetchone())
+        self.assertEqual(90, self.connection.execute(
+            "SELECT duration_minutes FROM matches WHERE fixture_id='fixture-1'"
+        ).fetchone()[0])
+        self.assertEqual("played", self.connection.execute(
+            "SELECT status FROM fixtures WHERE fixture_id='fixture-1'"
+        ).fetchone()[0])
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.connection.execute(
+                "INSERT INTO matches (match_id, fixture_id, home_club_id, away_club_id, home_score, away_score, "
+                "seed, engine_version, rules_version, home_xg, away_xg) "
+                "VALUES ('match-2', 'fixture-1', 'home', 'away', 0, 0, '10', '1010', '1', 0, 0)"
+            )
+        self.assertEqual([], self.connection.execute("PRAGMA foreign_key_check").fetchall())
+        self.assertEqual("ok", self.connection.execute("PRAGMA integrity_check").fetchone()[0])
 
 
 if __name__ == "__main__":
