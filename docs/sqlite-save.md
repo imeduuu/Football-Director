@@ -2,8 +2,10 @@
 
 `BT.Data.SqliteSaveDatabase.Open(path)` opens or creates a save slot. It enables
 foreign keys, switches the file to WAL journaling, creates schema v1 for a new
-file, and migrates supported v1 files to schema v2 before returning. The caller
-owns and disposes the returned object; use `Connection` for database operations.
+file, and applies migrations through schema v5 before returning. The v5 migration
+adds a lossless event record table for simulator event kinds that the compact v1
+`match_events` projection cannot represent. The caller owns and disposes the
+returned object; use `Connection` for database operations.
 
 ```csharp
 using var save = SqliteSaveDatabase.Open(savePath);

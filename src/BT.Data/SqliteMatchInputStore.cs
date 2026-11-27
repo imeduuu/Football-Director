@@ -13,9 +13,12 @@ namespace BT.Data;
 public sealed class SqliteMatchInputStore
 {
     private readonly SqliteConnection _connection;
+    private readonly SqliteTransaction? _transaction;
 
-    public SqliteMatchInputStore(SqliteConnection connection) =>
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+    public SqliteMatchInputStore(SqliteConnection connection) : this(connection, null) { }
+
+    internal SqliteMatchInputStore(SqliteConnection connection, SqliteTransaction? transaction)
+    { _connection = connection ?? throw new ArgumentNullException(nameof(connection)); _transaction = transaction; }
 
     /// <summary>Stores caller-resolved match inputs and the exact competition rules snapshot.</summary>
     public void Save(string fixtureId, string competitionId, string competitionRulesJson, MatchInput input)
@@ -56,7 +59,7 @@ VALUES($fixture,$competition,$rules,$seed,$engine,$neutral,$knockout);"))
     /// <summary>Loads the simulation input together with its competition identity and exact rules snapshot.</summary>
     public PersistedMatchInput LoadPrepared(string fixtureId)
     {
-        using var command = _connection.CreateCommand();
+        using var command = CreateReadCommand();
         command.CommandText = "SELECT competition_id,competition_rules_json,seed,engine_version,is_neutral_venue,is_knockout FROM fixture_match_context WHERE fixture_id=$fixture;";
         command.Parameters.AddWithValue("$fixture", fixtureId);
         using var reader = command.ExecuteReader();
@@ -121,7 +124,7 @@ VALUES($fixture,$club,$player,$starter,$order,$position,$fitness,$morale,$shirt,
 
     private IReadOnlyList<(string ClubId, bool IsHome)> LoadTeams(string fixtureId)
     {
-        using var command = _connection.CreateCommand(); command.CommandText = "SELECT club_id,is_home FROM fixture_match_teams WHERE fixture_id=$fixture ORDER BY is_home DESC;";
+        using var command = CreateReadCommand(); command.CommandText = "SELECT club_id,is_home FROM fixture_match_teams WHERE fixture_id=$fixture ORDER BY is_home DESC;";
         command.Parameters.AddWithValue("$fixture", fixtureId); using var reader = command.ExecuteReader();
         var result = new List<(string, bool)>(); while (reader.Read()) result.Add((reader.GetString(0), reader.GetInt32(1) == 1)); return result;
     }
@@ -129,7 +132,7 @@ VALUES($fixture,$club,$player,$starter,$order,$position,$fitness,$morale,$shirt,
     private MatchTeamInput LoadTeam(string fixtureId, string clubId)
     {
         string formation; TacticalMentality mentality; PassingStyle passing; PressingStyle pressing; DefensiveLine line; TeamWidth width;
-        using (var command = _connection.CreateCommand())
+        using (var command = CreateReadCommand())
         {
             command.CommandText = "SELECT formation_id,mentality,passing,pressing,defensive_line,width FROM fixture_match_teams WHERE fixture_id=$fixture AND club_id=$club;";
             command.Parameters.AddWithValue("$fixture", fixtureId); command.Parameters.AddWithValue("$club", clubId); using var reader = command.ExecuteReader();
@@ -138,7 +141,7 @@ VALUES($fixture,$club,$player,$starter,$order,$position,$fitness,$morale,$shirt,
             pressing = Parse<PressingStyle>(reader.GetString(3)); line = Parse<DefensiveLine>(reader.GetString(4)); width = Parse<TeamWidth>(reader.GetString(5));
         }
         var starters = new List<MatchPlayerInput>(); var substitutes = new List<MatchPlayerInput>();
-        using (var command = _connection.CreateCommand())
+        using (var command = CreateReadCommand())
         {
             command.CommandText = @"SELECT player_id,is_starter,position,fitness,morale,shirt_number,is_extra_community,is_injured,is_suspended
 FROM fixture_match_players WHERE fixture_id=$fixture AND club_id=$club ORDER BY is_starter DESC,selection_order;";
@@ -156,7 +159,7 @@ FROM fixture_match_players WHERE fixture_id=$fixture AND club_id=$club ORDER BY 
 
     private IReadOnlyDictionary<PlayerAttribute, int> LoadAttributes(string fixtureId, string clubId, string playerId)
     {
-        var result = new Dictionary<PlayerAttribute, int>(); using var command = _connection.CreateCommand();
+        var result = new Dictionary<PlayerAttribute, int>(); using var command = CreateReadCommand();
         command.CommandText = "SELECT attribute,value FROM fixture_match_player_attributes WHERE fixture_id=$fixture AND club_id=$club AND player_id=$player ORDER BY attribute;";
         command.Parameters.AddWithValue("$fixture", fixtureId); command.Parameters.AddWithValue("$club", clubId); command.Parameters.AddWithValue("$player", playerId);
         using var reader = command.ExecuteReader(); while (reader.Read()) result.Add(Parse<PlayerAttribute>(reader.GetString(0)), reader.GetInt32(1));
@@ -166,6 +169,9 @@ FROM fixture_match_players WHERE fixture_id=$fixture AND club_id=$club ORDER BY 
 
     private static T Parse<T>(string value) where T : struct, Enum =>
         Enum.TryParse<T>(value, false, out var result) && Enum.IsDefined(typeof(T), result) ? result : throw new InvalidOperationException($"Unknown persisted {typeof(T).Name} value '{value}'.");
+
+    private SqliteCommand CreateReadCommand()
+    { var command = _connection.CreateCommand(); command.Transaction = _transaction; return command; }
 
     private SqliteCommand Create(SqliteTransaction transaction, string sql)
     { var command = _connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql; return command; }

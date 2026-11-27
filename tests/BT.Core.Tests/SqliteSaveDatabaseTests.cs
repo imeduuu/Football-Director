@@ -21,7 +21,7 @@ public sealed class SqliteSaveDatabaseTests
             using var save = SqliteSaveDatabase.Open(path);
             using var command = save.Connection.CreateCommand();
             command.CommandText = "SELECT value FROM meta WHERE key='schema_version';";
-            Assert.Equal("4", command.ExecuteScalar());
+            Assert.Equal("5", command.ExecuteScalar());
             command.CommandText = "SELECT is_knockout FROM fixture_match_context WHERE 0;";
             command.CommandText = "PRAGMA foreign_keys;";
             Assert.Equal(1L, command.ExecuteScalar());

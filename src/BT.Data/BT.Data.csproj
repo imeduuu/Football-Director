@@ -11,5 +11,6 @@
     <EmbeddedResource Include="..\..\docs\migrations\002_matchday_closure.sql" Link="Migrations\002_matchday_closure.sql" />
     <EmbeddedResource Include="..\..\docs\migrations\003_match_input_snapshots.sql" Link="Migrations\003_match_input_snapshots.sql" />
     <EmbeddedResource Include="..\..\docs\migrations\004_knockout_match_inputs.sql" Link="Migrations\004_knockout_match_inputs.sql" />
+    <EmbeddedResource Include="..\..\docs\migrations\005_match_event_records.sql" Link="Migrations\005_match_event_records.sql" />
   </ItemGroup>
 </Project>
