@@ -9,5 +9,6 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\docs\schema_v1.sql" Link="Migrations\schema_v1.sql" />
     <EmbeddedResource Include="..\..\docs\migrations\002_matchday_closure.sql" Link="Migrations\002_matchday_closure.sql" />
+    <EmbeddedResource Include="..\..\docs\migrations\003_match_input_snapshots.sql" Link="Migrations\003_match_input_snapshots.sql" />
   </ItemGroup>
 </Project>

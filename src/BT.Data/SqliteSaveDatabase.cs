@@ -9,7 +9,7 @@ namespace BT.Data;
 /// <summary>Opens and migrates an offline SQLite save slot.</summary>
 public sealed class SqliteSaveDatabase : IDisposable
 {
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
     private readonly SqliteConnection _connection;
 
     private SqliteSaveDatabase(SqliteConnection connection) => _connection = connection;
@@ -68,15 +68,17 @@ public sealed class SqliteSaveDatabase : IDisposable
             throw new InvalidDataException($"Save schema version {version} is newer than supported version {CurrentSchemaVersion}.");
         while (version < CurrentSchemaVersion)
         {
-            if (version != 1) throw new InvalidDataException($"No migration is available from schema version {version}.");
+            if (version is not (1 or 2)) throw new InvalidDataException($"No migration is available from schema version {version}.");
             using var transaction = connection.BeginTransaction(deferred: false);
             try
             {
-                ExecuteScript(connection, ReadResource("002_matchday_closure.sql"), transaction);
+                var nextVersion = version + 1;
+                ExecuteScript(connection, ReadResource(nextVersion == 2 ? "002_matchday_closure.sql" : "003_match_input_snapshots.sql"), transaction);
                 using (var update = connection.CreateCommand())
                 {
                     update.Transaction = transaction;
-                    update.CommandText = "UPDATE meta SET value='2' WHERE key='schema_version';";
+                    update.CommandText = "UPDATE meta SET value=$version WHERE key='schema_version';";
+                    update.Parameters.AddWithValue("$version", nextVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
                     if (update.ExecuteNonQuery() != 1)
                         throw new InvalidDataException("The save schema version row is missing or duplicated.");
                 }
