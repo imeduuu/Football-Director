@@ -1,0 +1,136 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using BT.Core.Rng;
+using BT.Core.Sim;
+
+namespace BT.Core.Competition;
+
+/// <summary>Coordinates deterministic simulation and atomic closure of one competition round.</summary>
+public sealed class MatchdayProcessor
+{
+    private readonly IMatchdayStore _store;
+    private readonly IMatchdaySimulator _simulator;
+
+    public MatchdayProcessor(IMatchdayStore store, IMatchdaySimulator simulator)
+    {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _simulator = simulator ?? throw new ArgumentNullException(nameof(simulator));
+    }
+
+    /// <summary>
+    /// Simulates every unprocessed fixture and commits reports, player effects and standings
+    /// through one store transaction. Store implementations must make ApplyMatch atomic and
+    /// enforce uniqueness by match id; a failed callback must roll the whole round back.
+    /// </summary>
+    public MatchdayResult Process(ulong worldSeed, string competitionId, int season, int round,
+        string seasonId, string userClubId, PointsRules points)
+    {
+        if (string.IsNullOrWhiteSpace(competitionId)) throw new ArgumentException("Competition id is required.", nameof(competitionId));
+        if (string.IsNullOrWhiteSpace(seasonId)) throw new ArgumentException("Season id is required.", nameof(seasonId));
+        if (string.IsNullOrWhiteSpace(userClubId)) throw new ArgumentException("User club id is required.", nameof(userClubId));
+        if (season < 0) throw new ArgumentOutOfRangeException(nameof(season));
+        if (round < 1) throw new ArgumentOutOfRangeException(nameof(round));
+        if (points is null) throw new ArgumentNullException(nameof(points));
+
+        return _store.ExecuteTransaction(tx =>
+        {
+            var loadedFixtures = tx.GetFixtures(competitionId, seasonId, round).ToArray();
+            if (loadedFixtures.Any(f => f is null)) throw new InvalidOperationException("Store returned a null fixture.");
+            var fixtures = loadedFixtures.OrderBy(f => f.MatchId, StringComparer.Ordinal).ToArray();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var f in fixtures)
+                if (!ids.Add(f.MatchId)) throw new InvalidOperationException("Fixture ids must be unique in a matchday.");
+
+            var processed = new List<ProcessedMatch>();
+            foreach (var fixture in fixtures)
+            {
+                if (fixture.IsProcessed || tx.IsMatchProcessed(fixture.MatchId)) continue;
+                var seed = SeedDeriver.MatchSeed(worldSeed, competitionId, season, round, fixture.MatchId);
+                var input = tx.CreateMatchInput(fixture, seed, string.Equals(fixture.HomeClubId, userClubId, StringComparison.Ordinal) ||
+                    string.Equals(fixture.AwayClubId, userClubId, StringComparison.Ordinal));
+                if (input is null) throw new InvalidOperationException("Store returned a null match input.");
+                if (input.Seed != seed) throw new InvalidOperationException("Match input seed does not match its deterministic fixture seed.");
+                var userMatch = string.Equals(fixture.HomeClubId, userClubId, StringComparison.Ordinal) ||
+                    string.Equals(fixture.AwayClubId, userClubId, StringComparison.Ordinal);
+                var result = userMatch
+                    ? new ProcessedMatch(fixture, seed, true, _simulator.SimulateFull(input))
+                    : new ProcessedMatch(fixture, seed, false, _simulator.SimulateHeadless(input));
+                // This operation records match/events, cards and bans, injury availability,
+                // scorer stats, FIT/MOR, fixture completion and the idempotency key together.
+                tx.ApplyMatch(result);
+                processed.Add(result);
+            }
+
+            var table = Array.Empty<LeagueStanding>();
+            if (fixtures.Length > 0 && fixtures[0].Competition == MatchCompetition.League)
+            {
+                var results = tx.GetCompletedLeagueResults(competitionId, seasonId);
+                table = LeagueStandings.Calculate(tx.GetClubIds(competitionId, seasonId), results,
+                    points, competitionId, seasonId).ToArray();
+                tx.ReplaceStandings(competitionId, seasonId, table);
+            }
+            return new MatchdayResult(processed, table);
+        });
+    }
+}
+
+/// <summary>Persistence boundary. ExecuteTransaction must rollback on any exception.</summary>
+public interface IMatchdayStore
+{
+    T ExecuteTransaction<T>(Func<IMatchdayTransaction, T> operation);
+}
+
+/// <summary>All reads and writes used to close a round occur in the enclosing transaction.</summary>
+public interface IMatchdayTransaction
+{
+    IReadOnlyList<MatchdayFixture> GetFixtures(string competitionId, string seasonId, int round);
+    bool IsMatchProcessed(string matchId);
+    MatchInput CreateMatchInput(MatchdayFixture fixture, ulong seed, bool isUserMatch);
+    /// <summary>Atomically persists match and events, discipline, injuries, FIT/MOR, stats and fixture status.</summary>
+    void ApplyMatch(ProcessedMatch match);
+    IReadOnlyList<LeagueResult> GetCompletedLeagueResults(string competitionId, string seasonId);
+    IReadOnlyList<string> GetClubIds(string competitionId, string seasonId);
+    void ReplaceStandings(string competitionId, string seasonId, IReadOnlyList<LeagueStanding> standings);
+}
+
+/// <summary>The simulation engine uses the full event model for the user and compact mode for other fixtures.</summary>
+public interface IMatchdaySimulator
+{
+    MatchReport SimulateFull(MatchInput input);
+    HeadlessMatchResult SimulateHeadless(MatchInput input);
+}
+
+public sealed class MatchdayFixture
+{
+    public MatchdayFixture(string matchId, string homeClubId, string awayClubId,
+        MatchCompetition competition, bool isProcessed = false)
+    {
+        MatchId = Required(matchId, nameof(matchId)); HomeClubId = Required(homeClubId, nameof(homeClubId));
+        AwayClubId = Required(awayClubId, nameof(awayClubId));
+        if (HomeClubId == AwayClubId) throw new ArgumentException("A club cannot play itself.");
+        if (!Enum.IsDefined(typeof(MatchCompetition), competition)) throw new ArgumentOutOfRangeException(nameof(competition));
+        Competition = competition; IsProcessed = isProcessed;
+    }
+    public string MatchId { get; } public string HomeClubId { get; } public string AwayClubId { get; }
+    public MatchCompetition Competition { get; } public bool IsProcessed { get; }
+    private static string Required(string value, string name) => string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Value is required.", name) : value;
+}
+
+public sealed class ProcessedMatch
+{
+    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, MatchReport report)
+    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Report = report ?? throw new InvalidOperationException("Simulator returned a null report."); }
+    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, HeadlessMatchResult headless)
+    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Headless = headless ?? throw new InvalidOperationException("Simulator returned a null headless result."); }
+    public MatchdayFixture Fixture { get; } public ulong Seed { get; } public bool IsUserMatch { get; }
+    public MatchReport? Report { get; } public HeadlessMatchResult? Headless { get; }
+    public MatchScore Score => Report?.Score ?? Headless!.Score;
+}
+
+public sealed class MatchdayResult
+{
+    internal MatchdayResult(IReadOnlyList<ProcessedMatch> matches, IReadOnlyList<LeagueStanding> standings)
+    { Matches = Array.AsReadOnly(matches.ToArray()); Standings = Array.AsReadOnly(standings.ToArray()); }
+    public IReadOnlyList<ProcessedMatch> Matches { get; } public IReadOnlyList<LeagueStanding> Standings { get; }
+}
