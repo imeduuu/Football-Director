@@ -39,8 +39,15 @@ public sealed class MatchdayProcessor
             if (loadedFixtures.Any(f => f is null)) throw new InvalidOperationException("Store returned a null fixture.");
             var fixtures = loadedFixtures.OrderBy(f => f.MatchId, StringComparer.Ordinal).ToArray();
             var ids = new HashSet<string>(StringComparer.Ordinal);
+            var participatingClubs = new HashSet<string>(StringComparer.Ordinal);
             foreach (var f in fixtures)
+            {
                 if (!ids.Add(f.MatchId)) throw new InvalidOperationException("Fixture ids must be unique in a matchday.");
+                if (f.Competition != fixtures[0].Competition)
+                    throw new InvalidOperationException("A matchday cannot contain fixtures from different competition types.");
+                if (!participatingClubs.Add(f.HomeClubId) || !participatingClubs.Add(f.AwayClubId))
+                    throw new InvalidOperationException("A club cannot appear in more than one fixture in a matchday.");
+            }
 
             var processed = new List<ProcessedMatch>();
             foreach (var fixture in fixtures)
@@ -56,6 +63,7 @@ public sealed class MatchdayProcessor
                 var result = userMatch
                     ? new ProcessedMatch(fixture, seed, true, _simulator.SimulateFull(input))
                     : new ProcessedMatch(fixture, seed, false, _simulator.SimulateHeadless(input));
+                ValidateResult(result);
                 // This operation records match/events, cards and bans, injury availability,
                 // scorer stats, FIT/MOR, fixture completion and the idempotency key together.
                 tx.ApplyMatch(result);
@@ -72,6 +80,29 @@ public sealed class MatchdayProcessor
             }
             return new MatchdayResult(processed, table);
         });
+    }
+
+    private static void ValidateResult(ProcessedMatch match)
+    {
+        if (match.Score is null) throw new InvalidOperationException("Simulator returned a result without a score.");
+        var home = match.Fixture.HomeClubId;
+        var away = match.Fixture.AwayClubId;
+        if (match.Report is not null)
+        {
+            var report = match.Report;
+            if (report.Home.Ratings.Any(r => r is null) || report.Away.Ratings.Any(r => r is null) ||
+                report.Goalscorers.Any(g => g is null) || report.Events.Any(e => e is null))
+                throw new InvalidOperationException("Simulator returned null report data.");
+            if (report.Goalscorers.Any(g => g.TeamId != home && g.TeamId != away) ||
+                report.Events.Any(e => e.TeamId != home && e.TeamId != away))
+                throw new InvalidOperationException("Simulator returned an event for a club outside the fixture.");
+            var homeGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == away : g.TeamId == home));
+            var awayGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == home : g.TeamId == away));
+            if (homeGoals != report.Score.HomeGoals || awayGoals != report.Score.AwayGoals)
+                throw new InvalidOperationException("Simulator score and goalscorers disagree.");
+        }
+        else if (match.Headless is null)
+            throw new InvalidOperationException("Simulator returned no match outcome.");
     }
 }
 

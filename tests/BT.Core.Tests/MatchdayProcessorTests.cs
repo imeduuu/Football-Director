@@ -23,6 +23,24 @@ public sealed class MatchdayProcessorTests
         Assert.Equal(0, tx.AppliedMatches);
     }
 
+    [Fact]
+    public void RejectsInconsistentMatchdayBeforeSimulatingAnyFixture()
+    {
+        var tx = new FakeTransaction
+        {
+            Fixtures = new[]
+            {
+                new MatchdayFixture("match-1", "club-a", "club-b", MatchCompetition.League),
+                new MatchdayFixture("match-2", "club-c", "club-a", MatchCompetition.League)
+            }
+        };
+        var processor = new MatchdayProcessor(new FakeStore(tx), new ThrowingSimulator());
+
+        Assert.Throws<InvalidOperationException>(() => processor.Process(12, "league", 1, 1,
+            "season-1", "club-a", new PointsRules(3, 1, 0)));
+        Assert.Equal(0, tx.AppliedMatches);
+    }
+
     private sealed class FakeStore : IMatchdayStore
     {
         private readonly IMatchdayTransaction _transaction;
@@ -32,10 +50,12 @@ public sealed class MatchdayProcessorTests
 
     private sealed class FakeTransaction : IMatchdayTransaction
     {
+        public IReadOnlyList<MatchdayFixture> Fixtures { get; set; } =
+            new[] { new MatchdayFixture("match-1", "club-a", "club-b", MatchCompetition.League, isProcessed: true) };
         public bool StandingsReplaced { get; private set; }
         public int AppliedMatches { get; private set; }
         public IReadOnlyList<MatchdayFixture> GetFixtures(string competitionId, string seasonId, int round) =>
-            new[] { new MatchdayFixture("match-1", "club-a", "club-b", MatchCompetition.League, isProcessed: true) };
+            Fixtures;
         public bool IsMatchProcessed(string matchId) => false;
         public MatchInput CreateMatchInput(MatchdayFixture fixture, ulong seed, bool isUserMatch) =>
             throw new InvalidOperationException("Processed matches must not be prepared for simulation.");
