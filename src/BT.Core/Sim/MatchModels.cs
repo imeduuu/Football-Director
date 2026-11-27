@@ -142,7 +142,7 @@ public sealed class MatchTeamInput
 public sealed class MatchInput
 {
     public MatchInput(MatchTeamInput homeTeam, MatchTeamInput awayTeam, ulong seed,
-        EngineVersion engineVersion, bool isNeutralVenue = false)
+        EngineVersion engineVersion, bool isNeutralVenue = false, bool isKnockout = false)
     {
         HomeTeam = homeTeam ?? throw new ArgumentNullException(nameof(homeTeam));
         AwayTeam = awayTeam ?? throw new ArgumentNullException(nameof(awayTeam));
@@ -158,6 +158,7 @@ public sealed class MatchInput
         Seed = seed;
         EngineVersion = engineVersion;
         IsNeutralVenue = isNeutralVenue;
+        IsKnockout = isKnockout;
     }
 
     public MatchTeamInput HomeTeam { get; }
@@ -165,6 +166,8 @@ public sealed class MatchInput
     public ulong Seed { get; }
     public EngineVersion EngineVersion { get; }
     public bool IsNeutralVenue { get; }
+    /// <summary>Whether a tied match proceeds to extra time and a shootout under its competition rules.</summary>
+    public bool IsKnockout { get; }
 }
 
 public enum MatchEventType
@@ -351,6 +354,7 @@ public sealed class MatchScorer
 {
     public MatchScorer(string teamId, string playerId, int minute, bool isOwnGoal = false, string? assisterId = null)
     {
+        // TeamId is the team credited with the goal. For own goals PlayerId belongs to the opponent.
         TeamId = string.IsNullOrWhiteSpace(teamId) ? throw new ArgumentException("A stable team id is required.", nameof(teamId)) : teamId;
         PlayerId = string.IsNullOrWhiteSpace(playerId) ? throw new ArgumentException("A stable player id is required.", nameof(playerId)) : playerId;
         Minute = minute is >= 0 and <= 120 ? minute : throw new ArgumentOutOfRangeException(nameof(minute));
@@ -420,6 +424,24 @@ public sealed class PenaltyShootoutState
     { IsComplete = true; WinnerTeamId = _homeGoals > _awayGoals ? homeTeamId : awayTeamId; }
 }
 
+/// <summary>Immutable shootout summary retained by an authoritative match report.</summary>
+public sealed class PenaltyShootoutResult
+{
+    internal PenaltyShootoutResult(PenaltyShootoutState state)
+    {
+        if (!state.IsComplete) throw new ArgumentException("Only a completed shootout can be included in a match report.", nameof(state));
+        HomeKicks = state.HomeKicks; AwayKicks = state.AwayKicks;
+        HomeGoals = state.HomeGoals; AwayGoals = state.AwayGoals;
+        IsComplete = state.IsComplete; WinnerTeamId = state.WinnerTeamId;
+    }
+    public int HomeKicks { get; }
+    public int AwayKicks { get; }
+    public int HomeGoals { get; }
+    public int AwayGoals { get; }
+    public bool IsComplete { get; }
+    public string? WinnerTeamId { get; }
+}
+
 public enum MatchZone
 {
     DefenceLeft,
@@ -479,16 +501,20 @@ public sealed class MatchZoneMap
 
 public sealed class MatchPlayerRating
 {
-    public MatchPlayerRating(string playerId, double rating)
+    public MatchPlayerRating(string playerId, double rating, int minutesPlayed = 90, bool started = true)
     {
         PlayerId = string.IsNullOrWhiteSpace(playerId) ? throw new ArgumentException("A stable player id is required.", nameof(playerId)) : playerId;
         if (double.IsNaN(rating) || double.IsInfinity(rating) || rating < 3.0 || rating > 10.0)
             throw new ArgumentOutOfRangeException(nameof(rating));
         Rating = rating;
+        MinutesPlayed = minutesPlayed is >= 0 and <= 120 ? minutesPlayed : throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
+        Started = started;
     }
 
     public string PlayerId { get; }
     public double Rating { get; }
+    public int MinutesPlayed { get; }
+    public bool Started { get; }
 }
 
 public sealed class MatchTeamReport
@@ -527,13 +553,23 @@ public sealed class MatchTeamReport
 public sealed class MatchReport
 {
     public MatchReport(MatchScore score, IReadOnlyList<MatchScorer> goalscorers,
-        IReadOnlyList<MatchEvent> events, MatchTeamReport home, MatchTeamReport away)
+        IReadOnlyList<MatchEvent> events, MatchTeamReport home, MatchTeamReport away,
+        int durationMinutes = 90, PenaltyShootoutState? shootout = null,
+        ulong seed = 0, EngineVersion engineVersion = EngineVersion.V10_10,
+        MatchScore? regulationScore = null)
     {
         Score = score ?? throw new ArgumentNullException(nameof(score));
+        RegulationScore = regulationScore ?? score;
         if (goalscorers is null) throw new ArgumentNullException(nameof(goalscorers));
         if (events is null) throw new ArgumentNullException(nameof(events));
         Home = home ?? throw new ArgumentNullException(nameof(home));
         Away = away ?? throw new ArgumentNullException(nameof(away));
+        if (durationMinutes is < 90 or > 120) throw new ArgumentOutOfRangeException(nameof(durationMinutes));
+        DurationMinutes = durationMinutes;
+        Shootout = shootout is null ? null : new PenaltyShootoutResult(shootout);
+        Seed = seed;
+        EngineVersion = Enum.IsDefined(typeof(EngineVersion), engineVersion)
+            ? engineVersion : throw new ArgumentOutOfRangeException(nameof(engineVersion));
 
         var scorerSnapshot = goalscorers.ToArray();
         if (scorerSnapshot.Any(scorer => scorer is null))
@@ -553,12 +589,20 @@ public sealed class MatchReport
     }
 
     public MatchScore Score { get; }
+    /// <summary>Score after regular time and added time, before extra time and any shootout.</summary>
+    public MatchScore RegulationScore { get; }
     public IReadOnlyList<MatchScorer> Goalscorers { get; }
     public IReadOnlyList<MatchEvent> Events { get; }
     public IReadOnlyList<MatchEvent> Cards { get; }
     public IReadOnlyList<MatchEvent> Injuries { get; }
     public MatchTeamReport Home { get; }
     public MatchTeamReport Away { get; }
+    /// <summary>Actual played minutes, including added time and extra time, excluding a penalty shootout.</summary>
+    public int DurationMinutes { get; }
+    /// <summary>Penalty tally, separate from the match score and goalscorer statistics.</summary>
+    public PenaltyShootoutResult? Shootout { get; }
+    public ulong Seed { get; }
+    public EngineVersion EngineVersion { get; }
 
     /// <summary>Creates the compact result used for simulated matches outside the user's fixture.</summary>
     public HeadlessMatchResult ToHeadlessResult() => new(this);

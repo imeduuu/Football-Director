@@ -9,7 +9,7 @@ namespace BT.Data;
 /// <summary>Opens and migrates an offline SQLite save slot.</summary>
 public sealed class SqliteSaveDatabase : IDisposable
 {
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
     private readonly SqliteConnection _connection;
 
     private SqliteSaveDatabase(SqliteConnection connection) => _connection = connection;
@@ -68,12 +68,18 @@ public sealed class SqliteSaveDatabase : IDisposable
             throw new InvalidDataException($"Save schema version {version} is newer than supported version {CurrentSchemaVersion}.");
         while (version < CurrentSchemaVersion)
         {
-            if (version is not (1 or 2)) throw new InvalidDataException($"No migration is available from schema version {version}.");
+            if (version is not (1 or 2 or 3)) throw new InvalidDataException($"No migration is available from schema version {version}.");
             using var transaction = connection.BeginTransaction(deferred: false);
             try
             {
                 var nextVersion = version + 1;
-                ExecuteScript(connection, ReadResource(nextVersion == 2 ? "002_matchday_closure.sql" : "003_match_input_snapshots.sql"), transaction);
+                var migration = nextVersion switch
+                {
+                    2 => "002_matchday_closure.sql",
+                    3 => "003_match_input_snapshots.sql",
+                    _ => "004_knockout_match_inputs.sql"
+                };
+                ExecuteScript(connection, ReadResource(migration), transaction);
                 using (var update = connection.CreateCommand())
                 {
                     update.Transaction = transaction;

@@ -178,6 +178,17 @@ public sealed class MatchState
         Phase = MatchPhase.Finished;
     }
 
+    /// <summary>Advances one actual minute while the current half's event-derived added-time budget remains.</summary>
+    public void AdvanceAddedTimeMinute()
+    {
+        if (Phase is not (MatchPhase.FirstHalfAddedTime or MatchPhase.SecondHalfAddedTime))
+            throw new InvalidOperationException("The match is not in added time.");
+        var limit = _periodStartMinute + IntervalsPerHalf * IntervalMinutes + _periodAddedTime;
+        if (CurrentMinute >= limit)
+            throw new InvalidOperationException("The current added-time budget is complete.");
+        CurrentMinute++;
+    }
+
     public void StartSecondHalf()
     {
         if (Phase != MatchPhase.HalfTime)

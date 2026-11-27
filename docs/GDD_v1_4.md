@@ -909,6 +909,53 @@ incorporar la identidad del rematador: distancia, ángulo, tipo de
 asistencia, presión, posición y situación de juego. Rango de referencia
 inicial 0,03--0,65.
 
+#### Regla ejecutable del Vertical Slice (V14-R, provisional)
+
+Para que la primera implementación no esconda decisiones en código, el
+Vertical Slice usa una acción por equipo e intervalo de cinco minutos y
+una acción por equipo en cada minuto real de añadido,
+resuelta en este orden fijo: elegir uniformemente un jugador de campo no
+expulsado atacante y uno defensor no expulsado con PCG32; calcular
+progresión como la media de
+VIS, REG, VEL y FIN del atacante dividida por la media de MAR, ENT, POS y
+FUE del defensor, multiplicada por presión rival (bloque bajo 0,94,
+media 1,00, alta 1,06, gegenpressing 1,12) y mentalidad atacante
+(muy defensiva 0,94, defensiva 0,97, equilibrada 1,00, ofensiva 1,03,
+sobrecarga 1,06), y dividida por el factor de línea rival (muy atrás
+0,96, normal 1,00, adelantada 1,04); crear tiro si progresión es mayor
+que 1,15 más una variación uniforme en [−0,25,+0,25]. Si hay tiro,
+la distancia es clamp(30 − 0,22·y + 8·U, 7, 38) metros y el ángulo es
+55·U grados; `U` es el siguiente valor uniforme de la misma secuencia.
+La asistencia contextual se elige con igual probabilidad entre pase
+filtrado, centro, cutback y ninguna. Esos datos alimentan la fórmula xG
+ya definida y FIN/SER frente a POR/AGI para convertir el tiro. Un gol
+convertido se registra a favor del equipo atacante; con probabilidad
+provisional 0,015 se registra como autogol de un defensor elegido en la
+misma acción y se acredita al atacante. En gol normal, se elige
+uniformemente un jugador de campo no expulsado como asistente; si la
+selección coincide con el rematador, queda sin asistencia. `shotsOnTarget`
+cuenta los goles convertidos en esta versión; no se estima una parada ni
+un tiro no convertido sin una regla aprobada. El mapa de zonas cuenta
+acciones por zona discreta de la formación, con x escalada desde el centro
+por amplitud (estrecha 0,85, normal 1,00, abierta 1,15 y clamp [0,100]).
+La posesión usa §10.4 y los
+ratings usan exclusivamente las contribuciones medidas por este Slice;
+las contribuciones no medidas valen cero y no se imputan.
+
+Estos valores completan la regla provisional del Slice y requieren la
+calibración estadística de §§17 y 19 antes de congelar el balance. El
+árbitro usa estrictitud 50/100 y el contacto de una acción es una muestra
+uniforme entera [0,100), ambos explícitos mientras `MatchInput` no
+incluya esos parámetros. Lesiones/tarjetas siguen `SliceIncidentResolver`.
+El núcleo no genera sustituciones automáticas sin reglas de sustitución
+en la entrada. Una aparición actual contiene los once titulares; sus
+minutos son la duración real reportada. El resultado distingue los 90
+minutos reglamentarios, añadido derivado de los eventos, prórroga de seis
+intervalos y tanda. Los goles de tanda solo alteran su marcador separado.
+En la tanda, el turno inicial es local y los lanzadores siguen el orden del
+once de entrada, omitiendo al portero y a los expulsados; cada lanzamiento
+usa FIN/SER de quien lo ejecuta contra POR/AGI del portero rival.
+
 ### 10.6 Conversión de gol
 
 La fórmula original xG × ratio FIN/SER frente a POR/AGI puede superar 1

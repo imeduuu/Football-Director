@@ -21,7 +21,8 @@ public sealed class SqliteSaveDatabaseTests
             using var save = SqliteSaveDatabase.Open(path);
             using var command = save.Connection.CreateCommand();
             command.CommandText = "SELECT value FROM meta WHERE key='schema_version';";
-            Assert.Equal("3", command.ExecuteScalar());
+            Assert.Equal("4", command.ExecuteScalar());
+            command.CommandText = "SELECT is_knockout FROM fixture_match_context WHERE 0;";
             command.CommandText = "PRAGMA foreign_keys;";
             Assert.Equal(1L, command.ExecuteScalar());
             command.CommandText = "PRAGMA foreign_key_check;";
@@ -59,7 +60,7 @@ INSERT INTO players(player_id,club_id,full_name,age,nationality,position,ovr) VA
                 new[] { Player(prefix + "0", Position.Goalkeeper, 1) }.Concat(Enumerable.Range(1, 10).Select(i => Player(prefix + i, Position.CentreBack, i + 1))).ToArray(),
                 new[] { Player(prefix + "b", Position.Goalkeeper, 12) },
                 new MatchTactics("4-3-3", TacticalMentality.Attacking, PassingStyle.Direct, PressingStyle.Gegenpressing, DefensiveLine.High, TeamWidth.Wide));
-            var expected = new MatchInput(Team("home", "h"), Team("away", "a"), 18446744073709551610UL, EngineVersion.V10_10, true);
+            var expected = new MatchInput(Team("home", "h"), Team("away", "a"), 18446744073709551610UL, EngineVersion.V10_10, true, true);
             const string rules = "{\"id\":\"league\",\"version\":\"r7\",\"yellowThreshold\":4}";
             var store = new SqliteMatchInputStore(save.Connection);
             store.Save("fixture", "league", rules, expected);
@@ -68,6 +69,7 @@ INSERT INTO players(player_id,club_id,full_name,age,nationality,position,ovr) VA
             Assert.Equal(expected.Seed, actual.Seed);
             Assert.Equal(expected.EngineVersion, actual.EngineVersion);
             Assert.Equal(expected.IsNeutralVenue, actual.IsNeutralVenue);
+            Assert.Equal(expected.IsKnockout, actual.IsKnockout);
             Assert.Equal("league", prepared.CompetitionId);
             Assert.Equal(rules, prepared.CompetitionRulesJson);
             Assert.Equal(rules, ReadRules(save.Connection));

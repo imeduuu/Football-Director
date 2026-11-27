@@ -119,8 +119,8 @@ public sealed class MatchdayProcessor
             if (report.Home.Ratings.Any(r => !homePlayers.Contains(r.PlayerId)) ||
                 report.Away.Ratings.Any(r => !awayPlayers.Contains(r.PlayerId)))
                 throw new InvalidOperationException("Simulator returned a rating for a non-participant.");
-            var homeGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == away : g.TeamId == home));
-            var awayGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == home : g.TeamId == away));
+            var homeGoals = report.Goalscorers.Count(g => g.TeamId == home);
+            var awayGoals = report.Goalscorers.Count(g => g.TeamId == away);
             if (homeGoals != report.Score.HomeGoals || awayGoals != report.Score.AwayGoals)
                 throw new InvalidOperationException("Simulator score and goalscorers disagree.");
         }
@@ -131,8 +131,8 @@ public sealed class MatchdayProcessor
                 result.Goalscorers.Any(g => !IsParticipant(g.IsOwnGoal ? (g.TeamId == home ? away : home) : g.TeamId, g.PlayerId) ||
                     (g.AssisterId is not null && !IsParticipant(g.TeamId, g.AssisterId))))
                 throw new InvalidOperationException("Simulator returned an invalid headless goalscorer or assist.");
-            var homeGoals = result.Goalscorers.Count(g => g.IsOwnGoal ? g.TeamId == away : g.TeamId == home);
-            var awayGoals = result.Goalscorers.Count(g => g.IsOwnGoal ? g.TeamId == home : g.TeamId == away);
+            var homeGoals = result.Goalscorers.Count(g => g.TeamId == home);
+            var awayGoals = result.Goalscorers.Count(g => g.TeamId == away);
             if (homeGoals != result.Score.HomeGoals || awayGoals != result.Score.AwayGoals)
                 throw new InvalidOperationException("Headless score and goalscorers disagree.");
             if (result.Cards.Concat(result.Injuries).Any(e => e.TeamId != home && e.TeamId != away ||

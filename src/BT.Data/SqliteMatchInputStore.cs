@@ -31,8 +31,8 @@ public sealed class SqliteMatchInputStore
             using (var command = Create(transaction, "DELETE FROM fixture_match_context WHERE fixture_id=$fixture;"))
             { command.Parameters.AddWithValue("$fixture", fixtureId); command.ExecuteNonQuery(); }
             using (var command = Create(transaction, @"INSERT INTO fixture_match_context
-(fixture_id,competition_id,competition_rules_json,seed,engine_version,is_neutral_venue)
-VALUES($fixture,$competition,$rules,$seed,$engine,$neutral);"))
+(fixture_id,competition_id,competition_rules_json,seed,engine_version,is_neutral_venue,is_knockout)
+VALUES($fixture,$competition,$rules,$seed,$engine,$neutral,$knockout);"))
             {
                 command.Parameters.AddWithValue("$fixture", fixtureId);
                 command.Parameters.AddWithValue("$competition", competitionId);
@@ -40,6 +40,7 @@ VALUES($fixture,$competition,$rules,$seed,$engine,$neutral);"))
                 command.Parameters.AddWithValue("$seed", input.Seed.ToString(CultureInfo.InvariantCulture));
                 command.Parameters.AddWithValue("$engine", (int)input.EngineVersion);
                 command.Parameters.AddWithValue("$neutral", input.IsNeutralVenue ? 1 : 0);
+                command.Parameters.AddWithValue("$knockout", input.IsKnockout ? 1 : 0);
                 command.ExecuteNonQuery();
             }
             SaveTeam(transaction, fixtureId, input.HomeTeam, true);
@@ -56,7 +57,7 @@ VALUES($fixture,$competition,$rules,$seed,$engine,$neutral);"))
     public PersistedMatchInput LoadPrepared(string fixtureId)
     {
         using var command = _connection.CreateCommand();
-        command.CommandText = "SELECT competition_id,competition_rules_json,seed,engine_version,is_neutral_venue FROM fixture_match_context WHERE fixture_id=$fixture;";
+        command.CommandText = "SELECT competition_id,competition_rules_json,seed,engine_version,is_neutral_venue,is_knockout FROM fixture_match_context WHERE fixture_id=$fixture;";
         command.Parameters.AddWithValue("$fixture", fixtureId);
         using var reader = command.ExecuteReader();
         if (!reader.Read()) throw new InvalidOperationException($"No prepared match input exists for fixture '{fixtureId}'.");
@@ -66,6 +67,7 @@ VALUES($fixture,$competition,$rules,$seed,$engine,$neutral);"))
             throw new InvalidOperationException($"Invalid persisted seed for fixture '{fixtureId}'.");
         var engine = (EngineVersion)reader.GetInt32(3);
         var neutral = reader.GetInt32(4) != 0;
+        var knockout = reader.GetInt32(5) != 0;
         reader.Close();
         var teams = LoadTeams(fixtureId);
         var homeTeams = teams.Where(team => team.IsHome).ToArray();
@@ -73,7 +75,7 @@ VALUES($fixture,$competition,$rules,$seed,$engine,$neutral);"))
         if (homeTeams.Length != 1 || awayTeams.Length != 1)
             throw new InvalidOperationException("Persisted match input must have exactly one home and one away team.");
         var home = homeTeams[0]; var away = awayTeams[0];
-        var input = new MatchInput(LoadTeam(fixtureId, home.ClubId), LoadTeam(fixtureId, away.ClubId), seed, engine, neutral);
+        var input = new MatchInput(LoadTeam(fixtureId, home.ClubId), LoadTeam(fixtureId, away.ClubId), seed, engine, neutral, knockout);
         return new PersistedMatchInput(competitionId, competitionRulesJson, input);
     }
 
