@@ -116,6 +116,6 @@ public sealed class MatchSimulationTests
             SimulationFormulas.UpdateMatchFitness(1, 1, 120, 2, parameters));
         Assert.Equal(75.5, SimulationFormulas.UpdateMatchFitness(80, 60, 45, 0.5, parameters), 12);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            SimulationFormulas.UpdateMatchFitness(80, 60, 121, 1, parameters));
+            SimulationFormulas.UpdateMatchFitness(80, 60, 151, 1, parameters));
     }
 }

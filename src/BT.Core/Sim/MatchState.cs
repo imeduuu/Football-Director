@@ -130,6 +130,16 @@ public sealed class MatchState
             case MatchEventType.Substitution:
                 _periodSubstitutions++;
                 break;
+            case MatchEventType.Shot:
+            case MatchEventType.ShotOnTarget:
+            case MatchEventType.DefensiveActionWon:
+            case MatchEventType.Save:
+            case MatchEventType.PassAttempt:
+            case MatchEventType.PassCompleted:
+            case MatchEventType.ClearChance:
+            case MatchEventType.TackleWon:
+            case MatchEventType.InterceptionWon:
+                break;
             default:
                 _periodOtherEvents++;
                 break;

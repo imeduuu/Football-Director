@@ -142,7 +142,11 @@ public sealed class MatchTeamInput
 public sealed class MatchInput
 {
     public MatchInput(MatchTeamInput homeTeam, MatchTeamInput awayTeam, ulong seed,
-        EngineVersion engineVersion, bool isNeutralVenue = false, bool isKnockout = false)
+        EngineVersion engineVersion, bool isNeutralVenue = false, bool isKnockout = false,
+        IReadOnlyList<AutomaticSubstitutionRule>? homeSubstitutionRules = null,
+        IReadOnlyList<AutomaticSubstitutionRule>? awaySubstitutionRules = null,
+        AutomaticSubstitutionMode substitutionMode = AutomaticSubstitutionMode.Slice,
+        int substitutionLimit = 5)
     {
         HomeTeam = homeTeam ?? throw new ArgumentNullException(nameof(homeTeam));
         AwayTeam = awayTeam ?? throw new ArgumentNullException(nameof(awayTeam));
@@ -150,6 +154,13 @@ public sealed class MatchInput
             throw new ArgumentException("Home and away teams must be different.", nameof(awayTeam));
         if (!Enum.IsDefined(typeof(EngineVersion), engineVersion))
             throw new ArgumentOutOfRangeException(nameof(engineVersion));
+        if (!Enum.IsDefined(typeof(AutomaticSubstitutionMode), substitutionMode)) throw new ArgumentOutOfRangeException(nameof(substitutionMode));
+        if (substitutionLimit < 0) throw new ArgumentOutOfRangeException(nameof(substitutionLimit));
+        var ruleLimit = substitutionMode == AutomaticSubstitutionMode.Slice ? 1 : 3;
+        var homeRules = homeSubstitutionRules?.ToArray() ?? Array.Empty<AutomaticSubstitutionRule>();
+        var awayRules = awaySubstitutionRules?.ToArray() ?? Array.Empty<AutomaticSubstitutionRule>();
+        if (homeRules.Length > ruleLimit || awayRules.Length > ruleLimit || homeRules.Any(rule => rule is null) || awayRules.Any(rule => rule is null))
+            throw new ArgumentException($"Each side may configure at most {ruleLimit} valid substitution rule(s).");
         var homePlayerIds = HomeTeam.Starters.Concat(HomeTeam.Substitutes).Select(player => player.PlayerId);
         var awayPlayerIds = AwayTeam.Starters.Concat(AwayTeam.Substitutes).Select(player => player.PlayerId);
         if (homePlayerIds.Intersect(awayPlayerIds, StringComparer.Ordinal).Any())
@@ -159,6 +170,10 @@ public sealed class MatchInput
         EngineVersion = engineVersion;
         IsNeutralVenue = isNeutralVenue;
         IsKnockout = isKnockout;
+        HomeSubstitutionRules = Array.AsReadOnly(homeRules);
+        AwaySubstitutionRules = Array.AsReadOnly(awayRules);
+        SubstitutionMode = substitutionMode;
+        SubstitutionLimit = substitutionLimit;
     }
 
     public MatchTeamInput HomeTeam { get; }
@@ -168,6 +183,10 @@ public sealed class MatchInput
     public bool IsNeutralVenue { get; }
     /// <summary>Whether a tied match proceeds to extra time and a shootout under its competition rules.</summary>
     public bool IsKnockout { get; }
+    public IReadOnlyList<AutomaticSubstitutionRule> HomeSubstitutionRules { get; }
+    public IReadOnlyList<AutomaticSubstitutionRule> AwaySubstitutionRules { get; }
+    public AutomaticSubstitutionMode SubstitutionMode { get; }
+    public int SubstitutionLimit { get; }
 }
 
 public enum MatchEventType
@@ -184,7 +203,15 @@ public enum MatchEventType
     PenaltyAwarded,
     Corner,
     Other,
-    SubstitutionFailed
+    SubstitutionFailed,
+    ShotOnTarget,
+    DefensiveActionWon,
+    Save,
+    PassAttempt,
+    PassCompleted,
+    ClearChance,
+    TackleWon,
+    InterceptionWon
 }
 
 public enum AutomaticSubstitutionMode { Slice, Mvp }
@@ -501,26 +528,56 @@ public sealed class MatchZoneMap
 
 public sealed class MatchPlayerRating
 {
-    public MatchPlayerRating(string playerId, double rating, int minutesPlayed = 90, bool started = true)
+    public MatchPlayerRating(string playerId, double rating, int minutesPlayed = 90, bool started = true,
+        int goals = 0, int assists = 0, int shots = 0, int shotsOnTarget = 0,
+        int passesCompleted = 0, int passesAttempted = 0, int defensiveActionsWon = 0,
+        int saves = 0, int yellowCards = 0, int redCards = 0, int clearChances = 0,
+        int foulsCommitted = 0, int tacklesWon = 0, int interceptionsWon = 0)
     {
         PlayerId = string.IsNullOrWhiteSpace(playerId) ? throw new ArgumentException("A stable player id is required.", nameof(playerId)) : playerId;
         if (double.IsNaN(rating) || double.IsInfinity(rating) || rating < 3.0 || rating > 10.0)
             throw new ArgumentOutOfRangeException(nameof(rating));
         Rating = rating;
-        MinutesPlayed = minutesPlayed is >= 0 and <= 120 ? minutesPlayed : throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
+        MinutesPlayed = minutesPlayed is >= 0 and <= 150 ? minutesPlayed : throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
         Started = started;
+        var counts = new[] { goals, assists, shots, shotsOnTarget, passesCompleted, passesAttempted, defensiveActionsWon, saves, yellowCards, redCards, clearChances, foulsCommitted, tacklesWon, interceptionsWon };
+        if (counts.Any(value => value < 0) || shotsOnTarget > shots || passesCompleted > passesAttempted)
+            throw new ArgumentOutOfRangeException(nameof(goals), "Player statistics must be non-negative and completed counts cannot exceed attempts.");
+        Goals = goals; Assists = assists; Shots = shots; ShotsOnTarget = shotsOnTarget;
+        PassesCompleted = passesCompleted; PassesAttempted = passesAttempted;
+        TacklesWon = tacklesWon; InterceptionsWon = interceptionsWon;
+        DefensiveActionsWon = defensiveActionsWon == 0 ? tacklesWon + interceptionsWon : defensiveActionsWon;
+        Saves = saves; YellowCards = yellowCards; RedCards = redCards;
+        ClearChances = clearChances; FoulsCommitted = foulsCommitted;
     }
 
     public string PlayerId { get; }
     public double Rating { get; }
     public int MinutesPlayed { get; }
     public bool Started { get; }
+    public int Goals { get; }
+    public int Assists { get; }
+    public int Shots { get; }
+    public int ShotsOnTarget { get; }
+    public int PassesCompleted { get; }
+    public int PassesAttempted { get; }
+    public int DefensiveActionsWon { get; }
+    public int TacklesWon { get; }
+    public int InterceptionsWon { get; }
+    public int Saves { get; }
+    public int YellowCards { get; }
+    public int RedCards { get; }
+    public int ClearChances { get; }
+    public int FoulsCommitted { get; }
 }
 
 public sealed class MatchTeamReport
 {
     public MatchTeamReport(double possession, int shots, int shotsOnTarget, double expectedGoals,
-        MatchZoneMap zones, IReadOnlyList<MatchPlayerRating> ratings)
+        MatchZoneMap zones, IReadOnlyList<MatchPlayerRating> ratings,
+        int clearChances = 0, int passesCompleted = 0, int passesAttempted = 0,
+        int defensiveActionsWon = 0, int fouls = 0, int corners = 0,
+        int tacklesWon = 0, int interceptionsWon = 0)
     {
         if (double.IsNaN(possession) || double.IsInfinity(possession) || possession < 0.0 || possession > 100.0)
             throw new ArgumentOutOfRangeException(nameof(possession));
@@ -532,6 +589,11 @@ public sealed class MatchTeamReport
         if (double.IsNaN(expectedGoals) || double.IsInfinity(expectedGoals) || expectedGoals < 0.0)
             throw new ArgumentOutOfRangeException(nameof(expectedGoals));
         ExpectedGoals = expectedGoals;
+        if (clearChances < 0 || passesCompleted < 0 || passesAttempted < passesCompleted || defensiveActionsWon < 0 || fouls < 0 || corners < 0 || tacklesWon < 0 || interceptionsWon < 0)
+            throw new ArgumentOutOfRangeException(nameof(clearChances));
+        ClearChances = clearChances; PassesCompleted = passesCompleted; PassesAttempted = passesAttempted;
+        DefensiveActionsWon = defensiveActionsWon; Fouls = fouls; Corners = corners;
+        TacklesWon = tacklesWon; InterceptionsWon = interceptionsWon;
         Zones = zones ?? throw new ArgumentNullException(nameof(zones));
         if (ratings is null) throw new ArgumentNullException(nameof(ratings));
         var ratingSnapshot = ratings.ToArray();
@@ -545,6 +607,14 @@ public sealed class MatchTeamReport
     public int Shots { get; }
     public int ShotsOnTarget { get; }
     public double ExpectedGoals { get; }
+    public int ClearChances { get; }
+    public int PassesCompleted { get; }
+    public int PassesAttempted { get; }
+    public int DefensiveActionsWon { get; }
+    public int TacklesWon { get; }
+    public int InterceptionsWon { get; }
+    public int Fouls { get; }
+    public int Corners { get; }
     public MatchZoneMap Zones { get; }
     public IReadOnlyList<MatchPlayerRating> Ratings { get; }
 }
@@ -564,7 +634,7 @@ public sealed class MatchReport
         if (events is null) throw new ArgumentNullException(nameof(events));
         Home = home ?? throw new ArgumentNullException(nameof(home));
         Away = away ?? throw new ArgumentNullException(nameof(away));
-        if (durationMinutes is < 90 or > 120) throw new ArgumentOutOfRangeException(nameof(durationMinutes));
+        if (durationMinutes is < 90 or > 150) throw new ArgumentOutOfRangeException(nameof(durationMinutes));
         DurationMinutes = durationMinutes;
         Shootout = shootout is null ? null : new PenaltyShootoutResult(shootout);
         Seed = seed;

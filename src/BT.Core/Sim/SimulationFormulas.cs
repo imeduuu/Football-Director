@@ -24,8 +24,8 @@ public static class SimulationFormulas
         int penaltiesConceded, int penaltiesMissed, int teamResult, Position position, PlayerRatingParams p)
     {
         if (p is null) throw new ArgumentNullException(nameof(p));
-        if (minutes is < 0 or > 120 || goals < 0 || assists < 0 || shotsOnTarget < 0 || defensiveActionsWon < 0 || saves < 0 || goalsConceded < 0 || errorsLeadingToShot < 0 || errorsLeadingToGoal < 0 || yellowCards < 0 || redCards < 0 || penaltiesConceded < 0 || penaltiesMissed < 0)
-            throw new ArgumentOutOfRangeException(nameof(minutes), "Minutes and match statistics must be non-negative and minutes cannot exceed 120.");
+        if (minutes is < 0 or > 150 || goals < 0 || assists < 0 || shotsOnTarget < 0 || defensiveActionsWon < 0 || saves < 0 || goalsConceded < 0 || errorsLeadingToShot < 0 || errorsLeadingToGoal < 0 || yellowCards < 0 || redCards < 0 || penaltiesConceded < 0 || penaltiesMissed < 0)
+            throw new ArgumentOutOfRangeException(nameof(minutes), "Minutes and match statistics must be non-negative and minutes cannot exceed 150.");
         if (double.IsNaN(passAccuracy) || double.IsInfinity(passAccuracy) || passAccuracy is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(passAccuracy));
         if (teamResult is < -1 or > 1) throw new ArgumentOutOfRangeException(nameof(teamResult));
         if (!Enum.IsDefined(typeof(Position), position)) throw new ArgumentOutOfRangeException(nameof(position));
@@ -333,7 +333,7 @@ public static class SimulationFormulas
         ValidateStatus(fitness, parameters.Fitness.Minimum, parameters.Fitness.Maximum, nameof(fitness));
         if (!IsFinite(stamina) || stamina is < 1.0 or > 99.0)
             throw new ArgumentOutOfRangeException(nameof(stamina), "Stamina must be finite and in [1,99].");
-        if (minutesPlayed is < 0 or > 120) throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
+        if (minutesPlayed is < 0 or > 150) throw new ArgumentOutOfRangeException(nameof(minutesPlayed));
         if (!IsFinite(intensity) || intensity < 0.0)
             throw new ArgumentOutOfRangeException(nameof(intensity), "Intensity must be finite and non-negative.");
 

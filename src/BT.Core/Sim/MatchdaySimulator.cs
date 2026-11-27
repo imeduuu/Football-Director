@@ -39,22 +39,27 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         var events = new List<MatchEvent>();
         var scorers = new List<MatchScorer>();
         var state = new MatchState(input.HomeTeam.TeamId, input.AwayTeam.TeamId, _parameters.MatchSimulation);
+        var appearances = new MatchAppearanceTracker(input);
 
         for (var interval = 0; interval < 18; interval++)
         {
             state.AdvanceInterval();
             var minute = state.CurrentMinute;
-            ResolveAttack(0, input.HomeTeam, input.AwayTeam, homePoints, awayPoints, homeGrid, shots, onTarget, xg, scorers, events, state, minute, ref rng);
-            ResolveAttack(1, input.AwayTeam, input.HomeTeam, awayPoints, homePoints, awayGrid, shots, onTarget, xg, scorers, events, state, minute, ref rng);
+            var homeActive = CurrentTeam(input.HomeTeam, events);
+            var awayActive = CurrentTeam(input.AwayTeam, events);
+            appearances.Advance(homeActive, awayActive, events, 5);
+            ResolveAttack(0, homeActive, awayActive, GetPoints(homeActive), GetPoints(awayActive), homeGrid, shots, onTarget, xg, scorers, events, state, minute, ref rng);
+            ResolveAttack(1, awayActive, homeActive, GetPoints(awayActive), GetPoints(homeActive), awayGrid, shots, onTarget, xg, scorers, events, state, minute, ref rng);
+            ApplySubstitutions(input, state, events, appearances, minute);
             if (interval == 8)
             {
                 state.CompleteRegularPeriod();
-                ResolveAddedTime(state, 0, input, homePoints, awayPoints, homeGrid, awayGrid, shots, onTarget, xg, scorers, events, ref rng);
+                ResolveAddedTime(state, 0, input, homeGrid, awayGrid, shots, onTarget, xg, scorers, events, appearances, ref rng);
                 state.CompleteAddedTime(); state.StartSecondHalf();
             }
         }
         state.CompleteRegularPeriod();
-        ResolveAddedTime(state, 1, input, homePoints, awayPoints, homeGrid, awayGrid, shots, onTarget, xg, scorers, events, ref rng);
+        ResolveAddedTime(state, 1, input, homeGrid, awayGrid, shots, onTarget, xg, scorers, events, appearances, ref rng);
         state.CompleteAddedTime();
         var regulationScore = state.Score;
 
@@ -66,8 +71,12 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
             {
                 if (state.Phase == MatchPhase.ExtraTimeHalfTime) state.StartExtraTimeSecondHalf();
                 var eventMinute = state.CurrentMinute + 5;
-                ResolveAttack(0, input.HomeTeam, input.AwayTeam, homePoints, awayPoints, homeGrid, shots, onTarget, xg, scorers, events, state, eventMinute, ref rng);
-                ResolveAttack(1, input.AwayTeam, input.HomeTeam, awayPoints, homePoints, awayGrid, shots, onTarget, xg, scorers, events, state, eventMinute, ref rng);
+                var homeActive = CurrentTeam(input.HomeTeam, events);
+                var awayActive = CurrentTeam(input.AwayTeam, events);
+                appearances.Advance(homeActive, awayActive, events, 5);
+                ResolveAttack(0, homeActive, awayActive, GetPoints(homeActive), GetPoints(awayActive), homeGrid, shots, onTarget, xg, scorers, events, state, eventMinute, ref rng);
+                ResolveAttack(1, awayActive, homeActive, GetPoints(awayActive), GetPoints(homeActive), awayGrid, shots, onTarget, xg, scorers, events, state, eventMinute, ref rng);
+                ApplySubstitutions(input, state, events, appearances, eventMinute);
                 state.AdvanceExtraTimeInterval();
             }
             if (state.Score.HomeGoals == state.Score.AwayGoals)
@@ -75,33 +84,72 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         }
 
         var score = state.Score;
-        var homeRatings = RateTeam(input.HomeTeam, scorers, events, score, true, state.CurrentMinute);
-        var awayRatings = RateTeam(input.AwayTeam, scorers, events, score, false, state.CurrentMinute);
-        var homeReport = new MatchTeamReport(homePossession, shots[0], onTarget[0], xg[0], new MatchZoneMap(homeGrid), homeRatings);
-        var awayReport = new MatchTeamReport(100.0 - homePossession, shots[1], onTarget[1], xg[1], new MatchZoneMap(awayGrid), awayRatings);
+        var homeRatings = RateTeam(input.HomeTeam, scorers, events, score, true, appearances);
+        var awayRatings = RateTeam(input.AwayTeam, scorers, events, score, false, appearances);
+        var homeReport = CreateTeamReport(0, homePossession, shots, onTarget, xg, homeGrid, homeRatings, input.HomeTeam.TeamId, events);
+        var awayReport = CreateTeamReport(1, 100.0 - homePossession, shots, onTarget, xg, awayGrid, awayRatings, input.AwayTeam.TeamId, events);
         events = events.OrderBy(matchEvent => matchEvent.Minute)
             .ThenBy(matchEvent => matchEvent.TeamId, StringComparer.Ordinal)
             .ThenBy(matchEvent => matchEvent.Type).ToList();
         scorers.Sort((left, right) => left.Minute != right.Minute
             ? left.Minute.CompareTo(right.Minute) : StringComparer.Ordinal.Compare(left.PlayerId, right.PlayerId));
-        return new MatchReport(score, scorers, events, homeReport, awayReport, state.CurrentMinute, shootout,
+        return new MatchReport(score, scorers, events, homeReport, awayReport, appearances.DurationMinutes, shootout,
             input.Seed, input.EngineVersion, regulationScore);
     }
 
     private void ResolveAddedTime(MatchState state, int half, MatchInput input,
-        IReadOnlyList<FormationPoint> homePoints, IReadOnlyList<FormationPoint> awayPoints,
         int[] homeGrid, int[] awayGrid, int[] shots, int[] onTarget, double[] xg,
-        List<MatchScorer> scorers, List<MatchEvent> events, ref Pcg32 rng)
+        List<MatchScorer> scorers, List<MatchEvent> events, MatchAppearanceTracker appearances, ref Pcg32 rng)
     {
         var added = half == 0 ? state.FirstHalfAddedTime : state.SecondHalfAddedTime;
         var initialMinute = state.CurrentMinute;
         while (state.CurrentMinute < initialMinute + added)
         {
             state.AdvanceAddedTimeMinute();
-            ResolveAttack(0, input.HomeTeam, input.AwayTeam, homePoints, awayPoints, homeGrid, shots, onTarget, xg, scorers, events, state, state.CurrentMinute, ref rng);
-            ResolveAttack(1, input.AwayTeam, input.HomeTeam, awayPoints, homePoints, awayGrid, shots, onTarget, xg, scorers, events, state, state.CurrentMinute, ref rng);
+            var homeActive = CurrentTeam(input.HomeTeam, events);
+            var awayActive = CurrentTeam(input.AwayTeam, events);
+            appearances.Advance(homeActive, awayActive, events, 1);
+            ResolveAttack(0, homeActive, awayActive, GetPoints(homeActive), GetPoints(awayActive), homeGrid, shots, onTarget, xg, scorers, events, state, state.CurrentMinute, ref rng);
+            ResolveAttack(1, awayActive, homeActive, GetPoints(awayActive), GetPoints(homeActive), awayGrid, shots, onTarget, xg, scorers, events, state, state.CurrentMinute, ref rng);
+            ApplySubstitutions(input, state, events, appearances, state.CurrentMinute);
             added = half == 0 ? state.FirstHalfAddedTime : state.SecondHalfAddedTime;
         }
+    }
+
+    private void ApplySubstitutions(MatchInput input, MatchState state, List<MatchEvent> events,
+        MatchAppearanceTracker appearances, int minute)
+    {
+        foreach (var (team, rules) in new[]
+        {
+            (input.HomeTeam, input.HomeSubstitutionRules),
+            (input.AwayTeam, input.AwaySubstitutionRules)
+        })
+        {
+            if (rules.Count == 0) continue;
+            var changes = AutomaticSubstitutionEvaluator.Evaluate(team, rules, events, minute,
+                input.SubstitutionMode, input.SubstitutionLimit);
+            foreach (var change in changes)
+            {
+                state.RecordEvent(change);
+                events.Add(change);
+            }
+            appearances.RegisterSubstitutions(changes);
+        }
+    }
+
+    private static MatchTeamInput CurrentTeam(MatchTeamInput original, IReadOnlyList<MatchEvent> events)
+    {
+        var active = original.Starters.ToList();
+        foreach (var change in events.Where(e => e.TeamId == original.TeamId && e.Type == MatchEventType.Substitution))
+        {
+            var outgoingIndex = active.FindIndex(player => player.PlayerId == change.PlayerId);
+            var incoming = original.Substitutes.FirstOrDefault(player => player.PlayerId == change.RelatedPlayerId);
+            if (outgoingIndex < 0 || incoming is null) continue;
+            active[outgoingIndex] = incoming;
+        }
+        var activeIds = new HashSet<string>(active.Select(player => player.PlayerId), StringComparer.Ordinal);
+        var bench = original.Starters.Concat(original.Substitutes).Where(player => !activeIds.Contains(player.PlayerId)).ToArray();
+        return new MatchTeamInput(original.TeamId, active, bench, original.Tactics);
     }
 
     private void ResolveAttack(int side, MatchTeamInput attack, MatchTeamInput defend,
@@ -116,6 +164,9 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         var point = attackPoints[attackerIndex];
         var zone = Zone(point);
         zoneMap[(int)zone]++;
+        RecordStat(state, events, new MatchEvent(minute, MatchEventType.PassAttempt, attack.TeamId, attacker.PlayerId));
+        if (rng.NextDouble() < attacker.EffectiveAttributes[PlayerAttribute.Passing] / 100.0)
+            RecordStat(state, events, new MatchEvent(minute, MatchEventType.PassCompleted, attack.TeamId, attacker.PlayerId));
         var contact = rng.NextInt(0, 100);
         var incidents = SliceIncidentResolver.Resolve(minute, attack, defend, zone, attackerIndex, defenderIndex,
             50, contact, ref rng);
@@ -143,22 +194,38 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
             DefensiveLine.High => 1.04, _ => throw new ArgumentOutOfRangeException()
         };
         progression /= lineFactor;
-        if (!SimulationFormulas.ProgressionCreatesShot(progression, 1.15, 0.25, ref rng)) return;
+        if (!SimulationFormulas.ProgressionCreatesShot(progression, 1.15, 0.25, ref rng))
+        {
+            var defensiveAction = rng.NextInt(0, 2) == 0 ? MatchEventType.TackleWon : MatchEventType.InterceptionWon;
+            RecordStat(state, events, new MatchEvent(minute, defensiveAction, defend.TeamId, defender.PlayerId));
+            return;
+        }
 
         shots[side]++;
+        var shotEvent = new MatchEvent(minute, MatchEventType.Shot, attack.TeamId, attacker.PlayerId);
+        state.RecordEvent(shotEvent); events.Add(shotEvent);
         var rawDistance = 30.0 - point.Y * 0.22 + rng.NextDouble() * 8.0;
         var distance = rawDistance < 7.0 ? 7.0 : rawDistance;
         var angle = rng.NextDouble() * 55.0;
         var assistType = rng.NextInt(0, 4) switch { 0 => ShotAssistType.ThroughBall, 1 => ShotAssistType.Cross, 2 => ShotAssistType.Cutback, _ => ShotAssistType.None };
         var quality = SimulationFormulas.CalculateExpectedGoals(new ShotOpportunity(distance, angle, assistType, pressure - 0.94, ShotSituation.OpenPlay));
         xg[side] += quality;
+        if (quality >= 0.30) RecordStat(state, events, new MatchEvent(minute, MatchEventType.ClearChance, attack.TeamId, attacker.PlayerId));
         var keeper = defend.Starters.First(player => player.Position == Position.Goalkeeper);
         var probability = SimulationFormulas.CalculateGoalProbability(quality,
             attacker.EffectiveAttributes[PlayerAttribute.Finishing], attacker.EffectiveAttributes[PlayerAttribute.Composure],
             keeper.EffectiveAttributes[PlayerAttribute.Goalkeeping], keeper.EffectiveAttributes[PlayerAttribute.Agility], _parameters);
         var scored = rng.NextDouble() < probability;
-        // A shot counts on target when converted; otherwise its target classification is not inferred.
-        if (scored) onTarget[side]++;
+        // Goals are always on target; missed shots use a bounded target estimate based on shot quality and finishing.
+        var onTargetShot = scored || rng.NextDouble() < ShotOnTargetProbability(quality, attacker.EffectiveAttributes[PlayerAttribute.Finishing]);
+        if (onTargetShot)
+        {
+            onTarget[side]++;
+            var targetEvent = new MatchEvent(minute, MatchEventType.ShotOnTarget, attack.TeamId, attacker.PlayerId);
+            state.RecordEvent(targetEvent); events.Add(targetEvent);
+        }
+        if (!scored && onTargetShot)
+            RecordStat(state, events, new MatchEvent(minute, MatchEventType.Save, defend.TeamId, keeper.PlayerId));
         if (!scored) return;
         var ownGoal = rng.NextDouble() < 0.015;
         var scorerTeam = attack.TeamId;
@@ -173,6 +240,28 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         }
         scorers.Add(new MatchScorer(scorerTeam, ownGoal ? defender.PlayerId : attacker.PlayerId, minute, ownGoal, assist));
 
+    }
+
+    private static double ShotOnTargetProbability(double quality, int finishing)
+    {
+        var probability = 0.30 + quality * 0.35 + finishing * 0.002;
+        return probability < 0.25 ? 0.25 : probability > 0.75 ? 0.75 : probability;
+    }
+
+    private static void RecordStat(MatchState state, List<MatchEvent> events, MatchEvent matchEvent)
+    {
+        state.RecordEvent(matchEvent);
+        events.Add(matchEvent);
+    }
+
+    private static MatchTeamReport CreateTeamReport(int side, double possession, int[] shots, int[] onTarget,
+        double[] xg, int[] grid, IReadOnlyList<MatchPlayerRating> ratings, string teamId, IReadOnlyList<MatchEvent> events)
+    {
+        int Count(MatchEventType type) => events.Count(e => e.TeamId == teamId && e.Type == type);
+        return new MatchTeamReport(possession, shots[side], onTarget[side], xg[side], new MatchZoneMap(grid), ratings,
+            Count(MatchEventType.ClearChance), Count(MatchEventType.PassCompleted), Count(MatchEventType.PassAttempt),
+            Count(MatchEventType.DefensiveActionWon) + Count(MatchEventType.TackleWon) + Count(MatchEventType.InterceptionWon),
+            Count(MatchEventType.Foul), Count(MatchEventType.Corner), Count(MatchEventType.TackleWon), Count(MatchEventType.InterceptionWon));
     }
 
     private IReadOnlyList<FormationPoint> GetPoints(MatchTeamInput team)
@@ -271,24 +360,41 @@ public sealed class MatchdaySimulator : BT.Core.Competition.IMatchdaySimulator
         return indices[rng.NextInt(0, indices.Length)];
     }
 
-    private IReadOnlyList<MatchPlayerRating> RateTeam(MatchTeamInput team, IReadOnlyList<MatchScorer> goals,
-        IReadOnlyList<MatchEvent> events, MatchScore score, bool home, int duration)
+    internal IReadOnlyList<MatchPlayerRating> RateTeam(MatchTeamInput team, IReadOnlyList<MatchScorer> goals,
+        IReadOnlyList<MatchEvent> events, MatchScore score, bool home, MatchAppearanceTracker appearances)
     {
         var difference = home ? score.HomeGoals - score.AwayGoals : score.AwayGoals - score.HomeGoals;
         var result = difference > 0 ? 1 : difference < 0 ? -1 : 0;
-        return team.Starters.Select(player =>
+        var players = team.Starters.Concat(team.Substitutes).ToDictionary(player => player.PlayerId, StringComparer.Ordinal);
+        var resultRatings = new List<MatchPlayerRating>();
+        foreach (var playerId in appearances.Appeared.Where(players.ContainsKey))
         {
-            var playerGoals = goals.Count(goal => !goal.IsOwnGoal && goal.TeamId == team.TeamId && goal.PlayerId == player.PlayerId);
-            var assists = goals.Count(goal => goal.TeamId == team.TeamId && goal.AssisterId == player.PlayerId);
-            var cardsYellow = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == player.PlayerId && e.Type == MatchEventType.YellowCard);
-            var cardsRed = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == player.PlayerId && e.Type == MatchEventType.RedCard);
-            var dismissedAt = events.Where(e => e.TeamId == team.TeamId && e.PlayerId == player.PlayerId && e.Type == MatchEventType.RedCard)
-                .Select(e => e.Minute).DefaultIfEmpty(duration).Min();
-            var minutes = dismissedAt < duration ? dismissedAt : duration;
-            var rating = SimulationFormulas.CalculatePlayerRating(minutes, playerGoals, assists, 0, _parameters.PlayerRating.PassAccuracyTarget, 0, 0,
+            var player = players[playerId];
+            var minutes = appearances.Minutes[playerId];
+            var playerGoals = goals.Count(goal => !goal.IsOwnGoal && goal.TeamId == team.TeamId && goal.PlayerId == playerId);
+            var assists = goals.Count(goal => goal.TeamId == team.TeamId && goal.AssisterId == playerId);
+            var cardsYellow = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.YellowCard);
+            var cardsRed = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.RedCard);
+            var ownShots = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.Shot);
+            var ownOnTarget = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.ShotOnTarget);
+            var passesAttempted = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.PassAttempt);
+            var passesCompleted = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.PassCompleted);
+            var tackles = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.TackleWon);
+            var interceptions = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.InterceptionWon);
+            var defensiveActions = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.DefensiveActionWon) + tackles + interceptions;
+            var saves = events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.Save);
+            var passAccuracy = passesAttempted == 0 ? _parameters.PlayerRating.PassAccuracyTarget : (double)passesCompleted / passesAttempted;
+            var rating = SimulationFormulas.CalculatePlayerRating(minutes, playerGoals, assists, ownOnTarget, passAccuracy, defensiveActions, saves,
                 home ? score.AwayGoals == 0 : score.HomeGoals == 0, home ? score.AwayGoals : score.HomeGoals,
                 0, 0, cardsYellow, cardsRed, 0, 0, result, player.Position, _parameters.PlayerRating);
-            return new MatchPlayerRating(player.PlayerId, rating, minutes, true);
-        }).ToArray();
+            resultRatings.Add(new MatchPlayerRating(playerId, rating, minutes, appearances.Starters.Contains(playerId),
+                playerGoals, assists, ownShots, ownOnTarget, passesCompleted, passesAttempted,
+                defensiveActions, saves,
+                cardsYellow, cardsRed,
+                events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.ClearChance),
+                events.Count(e => e.TeamId == team.TeamId && e.PlayerId == playerId && e.Type == MatchEventType.Foul),
+                tackles, interceptions));
+        }
+        return resultRatings;
     }
 }

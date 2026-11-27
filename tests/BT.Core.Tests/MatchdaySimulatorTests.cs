@@ -42,6 +42,126 @@ public sealed class MatchdaySimulatorTests
         Assert.Equal(full.Injuries.Select(EventKey), headless.Injuries.Select(EventKey));
     }
 
+    [Fact]
+    public void SimulatorProducesIndividualAppearancesAndMeasuredStatisticsOnly()
+    {
+        var report = CreateSimulator().SimulateFull(CreateInput(1729, EngineVersion.V10_10));
+        var home = report.Home.Ratings;
+        Assert.Equal(11, home.Count);
+        Assert.All(home, player =>
+        {
+            Assert.True(player.Started);
+            Assert.Equal(report.DurationMinutes, player.MinutesPlayed);
+            Assert.InRange(player.Rating, 3.0, 10.0);
+        });
+        Assert.Equal(report.Home.Shots, home.Sum(player => player.Shots));
+        Assert.Equal(report.Home.ShotsOnTarget, home.Sum(player => player.ShotsOnTarget));
+        Assert.Equal(report.Goalscorers.Count(goal => goal.TeamId == "home" && !goal.IsOwnGoal), home.Sum(player => player.Goals));
+        Assert.Equal(report.Goalscorers.Count(goal => goal.TeamId == "home" && goal.AssisterId is not null), home.Sum(player => player.Assists));
+        Assert.Equal(report.Home.PassesAttempted, home.Sum(player => player.PassesAttempted));
+        Assert.Equal(report.Home.PassesCompleted, home.Sum(player => player.PassesCompleted));
+        Assert.Equal(report.Home.DefensiveActionsWon, home.Sum(player => player.DefensiveActionsWon));
+        Assert.Equal(report.Home.TacklesWon, home.Sum(player => player.TacklesWon));
+        Assert.Equal(report.Home.InterceptionsWon, home.Sum(player => player.InterceptionsWon));
+        Assert.Equal(report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.Save), home.Sum(player => player.Saves));
+        Assert.Equal(report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.ClearChance), report.Home.ClearChances);
+        Assert.Equal(report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.Foul), report.Home.Fouls);
+        Assert.Equal(report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.Corner), report.Home.Corners);
+        Assert.Equal(report.Home.TacklesWon, report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.TackleWon));
+        Assert.Equal(report.Home.InterceptionsWon, report.Events.Count(e => e.TeamId == "home" && e.Type == MatchEventType.InterceptionWon));
+        Assert.True(report.Home.PassesAttempted > 0);
+        Assert.True(report.Home.DefensiveActionsWon > 0);
+        Assert.True(report.Home.ClearChances >= 0);
+        Assert.InRange(report.Home.PassesCompleted, 0, report.Home.PassesAttempted);
+    }
+
+    [Fact]
+    public void BenchPlayersWithoutEffectiveEntryHaveNoAppearance()
+    {
+        var team = Team("home", "home", PassingStyle.Short);
+        var bench = new MatchPlayerInput("home-bench", Position.CentralMidfielder,
+            team.Starters[1].EffectiveAttributes, 80, 60);
+        var changedTeam = new MatchTeamInput(team.TeamId, team.Starters, new[] { bench }, team.Tactics);
+        var away = Team("away", "away", PassingStyle.Direct);
+        var result = CreateSimulator().SimulateFull(new MatchInput(changedTeam, away, 987654321, EngineVersion.V10_10));
+        Assert.DoesNotContain(result.Home.Ratings, rating => rating.PlayerId == bench.PlayerId);
+    }
+
+    [Fact]
+    public void EffectiveSubstitutionAndDismissalSetAppearanceMinutesAndRating()
+    {
+        var team = Team("home", "home", PassingStyle.Short);
+        var outgoing = team.Starters[1];
+        var dismissed = team.Starters[2];
+        var bench = new MatchPlayerInput("home-bench", outgoing.Position, outgoing.EffectiveAttributes, 80, 60);
+        var selected = new MatchTeamInput(team.TeamId, team.Starters, new[] { bench }, team.Tactics);
+        var away = Team("away", "away", PassingStyle.Direct);
+        var input = new MatchInput(selected, away, 1, EngineVersion.V10_10);
+        var tracker = new MatchAppearanceTracker(input);
+        var events = new System.Collections.Generic.List<MatchEvent>();
+        tracker.Advance(team, away, events, 60);
+        var substitution = new MatchEvent(10, MatchEventType.Substitution, team.TeamId,
+            outgoing.PlayerId, bench.PlayerId, ruleIndex: 0);
+        events.Add(substitution);
+        tracker.RegisterSubstitutions(new[] { substitution });
+        var active = team.Starters.ToArray();
+        active[1] = bench;
+        var changedTeam = new MatchTeamInput(team.TeamId, active, new[] { outgoing }, team.Tactics);
+        var dismissal = new MatchEvent(15, MatchEventType.RedCard, team.TeamId, dismissed.PlayerId);
+        events.Add(dismissal);
+        tracker.Advance(changedTeam, away, events, 20);
+
+        var appearances = CreateSimulator().RateTeam(selected, Array.Empty<MatchScorer>(), events,
+            new MatchScore(0, 0), true, tracker).ToDictionary(player => player.PlayerId);
+
+        Assert.Equal(12, appearances.Count);
+        Assert.Equal(60, appearances[outgoing.PlayerId].MinutesPlayed);
+        Assert.True(appearances[outgoing.PlayerId].Started);
+        Assert.Equal(20, appearances[bench.PlayerId].MinutesPlayed);
+        Assert.False(appearances[bench.PlayerId].Started);
+        Assert.Equal(60, appearances[dismissed.PlayerId].MinutesPlayed);
+        Assert.Equal(1, appearances[dismissed.PlayerId].RedCards);
+        Assert.True(appearances[dismissed.PlayerId].Rating < 6.5);
+    }
+
+    [Fact]
+    public void ExtraTimeDurationIsUsedForStarterMinutes()
+    {
+        var team = Team("home", "home", PassingStyle.Short);
+        var away = Team("away", "away", PassingStyle.Direct);
+        var tracker = new MatchAppearanceTracker(new MatchInput(team, away, 1, EngineVersion.V10_10));
+        tracker.Advance(team, away, Array.Empty<MatchEvent>(), 90);
+        for (var interval = 0; interval < 6; interval++) tracker.Advance(team, away, Array.Empty<MatchEvent>(), 5);
+        var ratings = CreateSimulator().RateTeam(team, Array.Empty<MatchScorer>(), Array.Empty<MatchEvent>(),
+            new MatchScore(0, 0), true, tracker);
+        Assert.Equal(120, tracker.DurationMinutes);
+        Assert.All(ratings, player => Assert.Equal(120, player.MinutesPlayed));
+    }
+
+    [Fact]
+    public void ConfiguredSubstitutionIsAppliedToTheMatchAndCreatesIncomingAppearance()
+    {
+        var team = Team("home", "home", PassingStyle.Short);
+        var outgoing = team.Starters[1];
+        var bench = new MatchPlayerInput("home-bench", outgoing.Position, outgoing.EffectiveAttributes, 80, 60);
+        team = new MatchTeamInput(team.TeamId, team.Starters, new[] { bench }, team.Tactics);
+        var away = Team("away", "away", PassingStyle.Direct);
+        var rule = new AutomaticSubstitutionRule(60, outgoing.Position, incomingPlayerId: bench.PlayerId);
+        var input = new MatchInput(team, away, 51, EngineVersion.V10_10, homeSubstitutionRules: new[] { rule });
+
+        var report = CreateSimulator().SimulateFull(input);
+
+        Assert.Contains(report.Events, e => e.Type == MatchEventType.Substitution && e.PlayerId == outgoing.PlayerId && e.RelatedPlayerId == bench.PlayerId);
+        Assert.Contains(report.Events, e => e.Type == MatchEventType.PassAttempt && e.PlayerId == bench.PlayerId);
+        var appearances = report.Home.Ratings.ToDictionary(player => player.PlayerId);
+        var substitutionMinute = report.Events.Single(e => e.Type == MatchEventType.Substitution && e.PlayerId == outgoing.PlayerId).Minute;
+        Assert.InRange(substitutionMinute, 60, 65);
+        Assert.Equal(substitutionMinute, appearances[outgoing.PlayerId].MinutesPlayed);
+        Assert.True(appearances[outgoing.PlayerId].Started);
+        Assert.Equal(report.DurationMinutes - substitutionMinute, appearances[bench.PlayerId].MinutesPlayed);
+        Assert.False(appearances[bench.PlayerId].Started);
+    }
+
     private static MatchdaySimulator CreateSimulator() => new(
         ParamsConfig.Load(Path.Combine(Config, "params.json")),
         FormationCatalog.Load(Path.Combine(Config, "formations.json")));
