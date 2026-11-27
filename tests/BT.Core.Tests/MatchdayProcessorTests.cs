@@ -56,7 +56,7 @@ public sealed class MatchdayProcessorTests
         public int AppliedMatches { get; private set; }
         public IReadOnlyList<MatchdayFixture> GetFixtures(string competitionId, string seasonId, int round) =>
             Fixtures;
-        public bool IsMatchProcessed(string matchId) => false;
+        public bool IsMatchProcessed(string matchId) => matchId == "match-1";
         public MatchInput CreateMatchInput(MatchdayFixture fixture, ulong seed, bool isUserMatch) =>
             throw new InvalidOperationException("Processed matches must not be prepared for simulation.");
         public void ApplyMatch(ProcessedMatch match) => AppliedMatches++;

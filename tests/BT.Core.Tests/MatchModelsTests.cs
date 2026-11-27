@@ -78,6 +78,27 @@ public sealed class MatchModelsTests
             CreateTeamReport(), CreateTeamReport()));
     }
 
+    [Fact]
+    public void HeadlessResultRetainsTheCompleteReportForIdenticalPersistenceEffects()
+    {
+        var report = new MatchReport(new MatchScore(1, 0),
+            new[] { new MatchScorer("home", "home-3", 90, assisterId: "home-4") },
+            new[]
+            {
+                new MatchEvent(12, MatchEventType.YellowCard, "home", "home-1"),
+                new MatchEvent(54, MatchEventType.Injury, "away", "away-2", injuryDays: 3)
+            }, CreateTeamReport(), CreateTeamReport());
+
+        var headless = report.ToHeadlessResult();
+
+        Assert.Same(report, headless.Report);
+        Assert.Same(report.Home, headless.Report.Home);
+        Assert.Equal(report.Events, headless.Report.Events);
+        Assert.Single(headless.Assists);
+        Assert.Equal("home-4", headless.Assists[0].PlayerId);
+        Assert.Equal(3, headless.Injuries[0].InjuryDays);
+    }
+
     private static MatchTeamInput CreateTeam(string teamId, IReadOnlyDictionary<PlayerAttribute, int> attributes) =>
         new(teamId, CreateStarters(teamId, attributes), Array.Empty<MatchPlayerInput>(), CreateTactics());
 

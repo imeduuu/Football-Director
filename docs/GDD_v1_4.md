@@ -988,8 +988,48 @@ posiciones ≤ 0,35.
 Partidos ajenos al usuario usan el mismo núcleo estadístico con menos
 detalle de registro. Conservan marcador, goleadores, asistentes,
 tarjetas, lesiones, sanciones y evolución de forma. El resultado debe
-ser coherente con el motor completo. 11. Mundo, competiciones y carrera
-larga
+ser coherente con el motor completo.
+
+La modalidad headless usa el mismo núcleo, entradas, versión del motor y
+flujo aleatorio derivado por partido que la simulación completa. Puede
+omitir cronología y datos de presentación, pero conserva todo dato
+necesario para reproducir el resultado y aplicar efectos: marcador
+reglamentario; goles con equipo, autor, minuto, autogol y asistencia;
+tarjetas con jugador, equipo, minuto y tipo; lesiones con jugador,
+minuto y duración; minutos y rating de cada jugador que entró al campo;
+y estadísticas por equipo y jugador requeridas por el informe y el
+historial. Los goles de tanda no se incluyen en el marcador
+reglamentario ni en estadísticas individuales. Ambas modalidades deben
+producir exactamente los mismos resultados y efectos para la misma
+entrada y semilla.
+
+Una aparición se registra por jugador que efectivamente entró al campo.
+Los suplentes que no entraron no generan minutos, rating ni cambios de
+FIT/MOR por ese partido. Los minutos se calculan por cambios efectivos,
+expulsiones y duración real del encuentro, incluido el añadido y la
+prórroga cuando corresponda; no se infieren del minuto de un evento.
+FIT se actualiza una sola vez con minutos reales, RES y
+`fitnessIntensity` de `config/params.json`. MOR de resultado y rating se
+aplica una vez a jugadores con aparición, según §§4.5 y 10.10. No se
+ejecuta recuperación diaria al cerrar. FIT/MOR quedan en [0,100]; OVR y
+atributos base no cambian por estos efectos.
+
+El historial por jugador y partido conserva minutos, titularidad,
+rating, goles, asistencias, tiros, tiros a puerta, pases,
+entradas/intercepciones, paradas y tarjetas que el motor haya medido.
+Las estadísticas de temporada son proyecciones reconstruibles de ese
+historial y de partidos confirmados; si se materializan, se actualizan
+en la misma transacción. Una lesión de partido registra instante de
+simulación, jugador, tipo, duración y disponibilidad resultante. Sus
+días restantes usan el calendario simulado: el cierre no consume el día
+en que ocurrió y la recuperación diaria lo consume una vez por fecha de
+juego.
+
+Los resultados conservan semilla derivada, versión del motor, versión
+de reglas, marcador, estadísticas, eventos y efectos aplicados. El
+orden de persistencia es determinista: minuto, orden de tipo de evento
+definido por el motor, equipo e identificador estable de jugador. Los
+desempates no consumen aleatoriedad adicional.
 
 ### 11. Mundo persistente y carrera
 
@@ -1213,6 +1253,51 @@ La tabla `world_generation` guarda una fila por mundo con `seed_world` (texto de
 
 -   Autoguardado con recuperación ante cierre inesperado y verificación
     de integridad SQLite.
+
+El cierre de una jornada es una única transacción SQLite que incluye
+todos sus partidos pendientes, resultados y eventos, apariciones y
+estadísticas, FIT/MOR, disponibilidad y disciplina, estado de fixtures
+y proyección de standings. La transacción comienza antes de leer los
+fixtures y termina tras actualizar todas las proyecciones; cualquier
+error revierte la jornada completa. Se usa `BEGIN IMMEDIATE` para
+serializar cierres concurrentes del mismo slot.
+
+La identidad idempotente es el `fixture_id` estable, protegido por una
+restricción `UNIQUE` en los resultados persistidos. La consulta previa
+de estado solo evita trabajo y no garantiza unicidad. Si dos llamadas
+compiten, la restricción y la transacción serializada impiden duplicar
+partido o efectos; la llamada perdedora revierte y vuelve a leer el
+estado confirmado. Reintentar una jornada cerrada no vuelve a simular
+ni reaplica efectos: devuelve resultados persistidos y reconstruye
+standings desde partidos confirmados. Los eventos se identifican por
+`(match_id, event_no)`, con secuencia determinista dentro del partido.
+
+El esquema versionado persiste como mínimo los datos de resultado de
+§10.11, las lesiones activas y la disciplina con alcance y partidos por
+cumplir. Resultado, eventos, apariciones, disponibilidad y disciplina
+aplicada son autoritativos; standings y estadísticas de temporada son
+proyecciones derivadas. Cada cambio estructural usa una migración nueva,
+sin editar migraciones publicadas. Las pruebas cubren cada versión de
+origen soportada y comprueban integridad y preservación de datos.
+
+Contrato mínimo de persistencia para ese cierre: cada fixture referencia
+competición, temporada, jornada, clubes y estado; cada resultado tiene
+una relación única con su fixture. `match_appearances` (o equivalente)
+usa clave `(match_id, player_id)` y conserva minutos, titularidad y
+rating. `player_match_stats` conserva los contadores medidos por jugador
+y partido, con la misma clave y restricciones no negativas. Las lesiones
+activas conservan disponibilidad y días restantes del calendario
+simulado. El estado disciplinario se identifica por jugador, grupo de
+acumulación y competición de servicio, y conserva amarillas, partidos
+pendientes, causa, fixture de origen y versión de reglas. Tarjetas y
+lesiones del informe también aparecen en `match_events`; no se mantiene
+un segundo registro de eventos independiente que pueda divergir.
+
+Los minutos de partido persistidos usan minuto transcurrido absoluto de
+0 a 120, incluidos añadido y prórroga. La tanda de penaltis se almacena
+como resultado auxiliar de la eliminatoria y no como minutos ni goles
+reglamentarios. Las restricciones de esquema y sus migraciones deben
+permitir ese rango y preservar los resultados históricos existentes.
 
 ### 14.7 Determinismo multiplataforma \[v1.3·R\]
 
@@ -1795,6 +1880,38 @@ verificado y versionado.
     paquete ficticio de prueba, no una afirmación sobre reglamentos
     oficiales. Antes de incluir una competición real se reemplazan por
     su reglamento documentado.
+
+#### 23.1.1 Alcance, servicio y traspaso de sanciones
+
+Cada paquete declara identificadores estables de competición, grupo de
+acumulación de amarillas y liga de destino para traspasos. Las amarillas
+se acumulan por grupo configurado, no por un enum genérico de tipo de
+competición; dos copas solo comparten acumulación si declaran el mismo
+grupo. Umbral, duración, mínimo y adicional de roja y destino alternativo
+son parámetros versionados del paquete, no constantes del motor.
+
+Al procesar un partido, primero se consume una sanción anterior si el
+club disputó un fixture de la competición donde debe cumplirse. El
+jugador suspendido no puede participar y no necesita figurar en la
+alineación para consumir esa fecha de sanción. Después se procesan las
+tarjetas nuevas; una sanción nunca se cumple en el partido que la
+originó. Alcanzar el umbral de amarillas reinicia el contador del grupo
+y crea la suspensión configurada. La roja directa crea una suspensión
+independiente y suma mínimo más adicionales configurados.
+
+Una roja se asigna a la misma competición si el club tiene allí fixtures
+futuros programados en la temporada; si no, pasa a la liga de destino
+declarada. Se excluyen el fixture actual, partidos jugados y fixtures
+anulados; un fixture aplazado cuenta mientras siga programado. Si no
+queda fixture elegible de liga en la temporada, la sanción permanece
+pendiente hasta el siguiente partido de liga, incluso en la temporada
+siguiente. El cambio de temporada no borra sanciones ni amarillas salvo
+regla explícita y versionada del paquete.
+
+Se persiste por jugador el grupo disciplinario, contador de amarillas,
+partidos pendientes, competición de cumplimiento, causa, fixture de
+origen y versión de reglas. Cada sanción se consume una sola vez por
+fixture elegible, dentro de la transacción idempotente de §14.6.
 
 ### 23.2 Estructura de la Copa Nacional (40 equipos) \[v1.3·A\]
 

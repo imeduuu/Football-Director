@@ -564,12 +564,16 @@ public sealed class MatchReport
     public HeadlessMatchResult ToHeadlessResult() => new(this);
 }
 
-/// <summary>Compact match outcome without the full event chronology or team statistics.</summary>
+/// <summary>
+/// Compact match outcome. The presentation layer may ignore the report, but persistence keeps
+/// the same authoritative data as the full simulation so both modes have identical effects.
+/// </summary>
 public sealed class HeadlessMatchResult
 {
     internal HeadlessMatchResult(MatchReport report)
     {
         if (report is null) throw new ArgumentNullException(nameof(report));
+        Report = report;
         Score = report.Score;
         Goalscorers = report.Goalscorers;
         Assists = Array.AsReadOnly(report.Goalscorers.Where(goal => goal.AssisterId is not null)
@@ -580,6 +584,8 @@ public sealed class HeadlessMatchResult
         AwayForm = report.Away.Ratings;
     }
 
+    /// <summary>The authoritative result shared with full mode, including team statistics and chronology.</summary>
+    public MatchReport Report { get; }
     public MatchScore Score { get; }
     public IReadOnlyList<MatchScorer> Goalscorers { get; }
     public IReadOnlyList<MatchAssist> Assists { get; }

@@ -52,7 +52,13 @@ public sealed class MatchdayProcessor
             var processed = new List<ProcessedMatch>();
             foreach (var fixture in fixtures)
             {
-                if (fixture.IsProcessed || tx.IsMatchProcessed(fixture.MatchId)) continue;
+                // The persisted result is the idempotency authority. Fixture status is only a
+                // projection; a mismatch indicates broken persistence and must not silently
+                // skip a match or apply its effects a second time.
+                var hasPersistedResult = tx.IsMatchProcessed(fixture.MatchId);
+                if (fixture.IsProcessed && !hasPersistedResult)
+                    throw new InvalidOperationException("Fixture is marked processed but has no persisted match result.");
+                if (hasPersistedResult) continue;
                 var seed = SeedDeriver.MatchSeed(worldSeed, competitionId, season, round, fixture.MatchId);
                 var input = tx.CreateMatchInput(fixture, seed, string.Equals(fixture.HomeClubId, userClubId, StringComparison.Ordinal) ||
                     string.Equals(fixture.AwayClubId, userClubId, StringComparison.Ordinal));
@@ -60,9 +66,12 @@ public sealed class MatchdayProcessor
                 if (input.Seed != seed) throw new InvalidOperationException("Match input seed does not match its deterministic fixture seed.");
                 var userMatch = string.Equals(fixture.HomeClubId, userClubId, StringComparison.Ordinal) ||
                     string.Equals(fixture.AwayClubId, userClubId, StringComparison.Ordinal);
+                if (!string.Equals(input.HomeTeam.TeamId, fixture.HomeClubId, StringComparison.Ordinal) ||
+                    !string.Equals(input.AwayTeam.TeamId, fixture.AwayClubId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("Match input participants do not match the fixture.");
                 var result = userMatch
-                    ? new ProcessedMatch(fixture, seed, true, _simulator.SimulateFull(input))
-                    : new ProcessedMatch(fixture, seed, false, _simulator.SimulateHeadless(input));
+                    ? new ProcessedMatch(fixture, seed, true, input, _simulator.SimulateFull(input))
+                    : new ProcessedMatch(fixture, seed, false, input, _simulator.SimulateHeadless(input));
                 ValidateResult(result);
                 // This operation records match/events, cards and bans, injury availability,
                 // scorer stats, FIT/MOR, fixture completion and the idempotency key together.
@@ -87,6 +96,12 @@ public sealed class MatchdayProcessor
         if (match.Score is null) throw new InvalidOperationException("Simulator returned a result without a score.");
         var home = match.Fixture.HomeClubId;
         var away = match.Fixture.AwayClubId;
+        var homePlayers = match.Input.HomeTeam.Starters.Concat(match.Input.HomeTeam.Substitutes)
+            .Select(player => player.PlayerId).ToHashSet(StringComparer.Ordinal);
+        var awayPlayers = match.Input.AwayTeam.Starters.Concat(match.Input.AwayTeam.Substitutes)
+            .Select(player => player.PlayerId).ToHashSet(StringComparer.Ordinal);
+        bool IsParticipant(string teamId, string? playerId) => playerId is not null &&
+            (teamId == home ? homePlayers.Contains(playerId) : teamId == away && awayPlayers.Contains(playerId));
         if (match.Report is not null)
         {
             var report = match.Report;
@@ -96,13 +111,37 @@ public sealed class MatchdayProcessor
             if (report.Goalscorers.Any(g => g.TeamId != home && g.TeamId != away) ||
                 report.Events.Any(e => e.TeamId != home && e.TeamId != away))
                 throw new InvalidOperationException("Simulator returned an event for a club outside the fixture.");
+            if (report.Goalscorers.Any(g => !IsParticipant(g.IsOwnGoal ? (g.TeamId == home ? away : home) : g.TeamId, g.PlayerId) ||
+                    (g.AssisterId is not null && !IsParticipant(g.TeamId, g.AssisterId))) ||
+                report.Events.Any(e => e.PlayerId is not null && !IsParticipant(e.TeamId, e.PlayerId) ||
+                    e.RelatedPlayerId is not null && !IsParticipant(e.TeamId, e.RelatedPlayerId)))
+                throw new InvalidOperationException("Simulator returned a player event for a non-participant.");
+            if (report.Home.Ratings.Any(r => !homePlayers.Contains(r.PlayerId)) ||
+                report.Away.Ratings.Any(r => !awayPlayers.Contains(r.PlayerId)))
+                throw new InvalidOperationException("Simulator returned a rating for a non-participant.");
             var homeGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == away : g.TeamId == home));
             var awayGoals = report.Goalscorers.Count(g => (g.IsOwnGoal ? g.TeamId == home : g.TeamId == away));
             if (homeGoals != report.Score.HomeGoals || awayGoals != report.Score.AwayGoals)
                 throw new InvalidOperationException("Simulator score and goalscorers disagree.");
         }
-        else if (match.Headless is null)
-            throw new InvalidOperationException("Simulator returned no match outcome.");
+        else
+        {
+            var result = match.Headless ?? throw new InvalidOperationException("Simulator returned no match outcome.");
+            if (result.Goalscorers.Any(g => g.TeamId != home && g.TeamId != away) ||
+                result.Goalscorers.Any(g => !IsParticipant(g.IsOwnGoal ? (g.TeamId == home ? away : home) : g.TeamId, g.PlayerId) ||
+                    (g.AssisterId is not null && !IsParticipant(g.TeamId, g.AssisterId))))
+                throw new InvalidOperationException("Simulator returned an invalid headless goalscorer or assist.");
+            var homeGoals = result.Goalscorers.Count(g => g.IsOwnGoal ? g.TeamId == away : g.TeamId == home);
+            var awayGoals = result.Goalscorers.Count(g => g.IsOwnGoal ? g.TeamId == home : g.TeamId == away);
+            if (homeGoals != result.Score.HomeGoals || awayGoals != result.Score.AwayGoals)
+                throw new InvalidOperationException("Headless score and goalscorers disagree.");
+            if (result.Cards.Concat(result.Injuries).Any(e => e.TeamId != home && e.TeamId != away ||
+                    e.PlayerId is null || !IsParticipant(e.TeamId, e.PlayerId)))
+                throw new InvalidOperationException("Simulator returned an invalid headless card or injury.");
+            if (result.HomeForm.Any(r => !homePlayers.Contains(r.PlayerId)) ||
+                result.AwayForm.Any(r => !awayPlayers.Contains(r.PlayerId)))
+                throw new InvalidOperationException("Simulator returned headless form for a non-participant.");
+        }
     }
 }
 
@@ -150,12 +189,13 @@ public sealed class MatchdayFixture
 
 public sealed class ProcessedMatch
 {
-    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, MatchReport report)
-    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Report = report ?? throw new InvalidOperationException("Simulator returned a null report."); }
-    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, HeadlessMatchResult headless)
-    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Headless = headless ?? throw new InvalidOperationException("Simulator returned a null headless result."); }
+    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, MatchInput input, MatchReport report)
+    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Input = input; Report = report ?? throw new InvalidOperationException("Simulator returned a null report."); }
+    internal ProcessedMatch(MatchdayFixture fixture, ulong seed, bool isUserMatch, MatchInput input, HeadlessMatchResult headless)
+    { Fixture = fixture; Seed = seed; IsUserMatch = isUserMatch; Input = input; Headless = headless ?? throw new InvalidOperationException("Simulator returned a null headless result."); }
     public MatchdayFixture Fixture { get; } public ulong Seed { get; } public bool IsUserMatch { get; }
     public MatchReport? Report { get; } public HeadlessMatchResult? Headless { get; }
+    internal MatchInput Input { get; }
     public MatchScore Score => Report?.Score ?? Headless!.Score;
 }
 
@@ -164,4 +204,6 @@ public sealed class MatchdayResult
     internal MatchdayResult(IReadOnlyList<ProcessedMatch> matches, IReadOnlyList<LeagueStanding> standings)
     { Matches = Array.AsReadOnly(matches.ToArray()); Standings = Array.AsReadOnly(standings.ToArray()); }
     public IReadOnlyList<ProcessedMatch> Matches { get; } public IReadOnlyList<LeagueStanding> Standings { get; }
+    /// <summary>The user's full report, or null when their fixture was already processed or absent.</summary>
+    public MatchReport? UserMatchReport => Matches.FirstOrDefault(match => match.IsUserMatch)?.Report;
 }
