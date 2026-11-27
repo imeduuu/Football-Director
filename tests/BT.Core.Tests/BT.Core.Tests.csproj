@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BT.Core\BT.Core.csproj" />
+    <ProjectReference Include="..\..\src\BT.Data\BT.Data.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\golden\core.hash" Link="golden\core.hash" CopyToOutputDirectory="PreserveNewest" />

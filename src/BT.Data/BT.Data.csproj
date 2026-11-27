@@ -4,5 +4,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BT.Core\BT.Core.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\schema_v1.sql" Link="Migrations\schema_v1.sql" />
+    <EmbeddedResource Include="..\..\docs\migrations\002_matchday_closure.sql" Link="Migrations\002_matchday_closure.sql" />
   </ItemGroup>
 </Project>
