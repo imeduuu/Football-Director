@@ -24,7 +24,8 @@ public sealed class ParamsConfig
         IReadOnlyList<AgeRecoveryFactor> ageRecoveryFactors, BoardConfidenceParams boardConfidence,
         AttributeGenerationParams attributeGeneration, SquadGenerationParams squadGeneration,
         ExpectedPointsParams expectedPoints, PositionalFamiliarityParams positionalFamiliarity,
-        EffectivePerformanceParams effectivePerformance, MatchSimulationParams matchSimulation)
+        EffectivePerformanceParams effectivePerformance, MatchSimulationParams matchSimulation,
+        LineupSelectionWeights lineupSelection)
     {
         Version = version;
         Fitness = fitness;
@@ -37,6 +38,7 @@ public sealed class ParamsConfig
         PositionalFamiliarity = positionalFamiliarity;
         EffectivePerformance = effectivePerformance;
         MatchSimulation = matchSimulation;
+        LineupSelection = lineupSelection;
     }
 
     public string Version { get; }
@@ -50,6 +52,7 @@ public sealed class ParamsConfig
     public PositionalFamiliarityParams PositionalFamiliarity { get; }
     public EffectivePerformanceParams EffectivePerformance { get; }
     public MatchSimulationParams MatchSimulation { get; }
+    public LineupSelectionWeights LineupSelection { get; }
     public PlayerRatingParams PlayerRating => MatchSimulation.PlayerRating;
 
     public static IReadOnlyDictionary<PlayerAttribute, AttributeFamily> AttributeFamilies { get; } =
@@ -91,7 +94,7 @@ public sealed class ParamsConfig
         {
             using var document = JsonDocument.Parse(json);
             RejectDuplicateProperties(document.RootElement, "$");
-            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "matchSimulation", "worldGeneration");
+            EnsureRequiredProperties(document.RootElement, "version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "attributeGeneration", "squadGeneration", "expectedPoints", "positionalFamiliarity", "lineupSelection", "effectivePerformance", "matchSimulation", "worldGeneration");
             var root = document.RootElement;
             EnsureRequiredProperties(root.GetProperty("fitness"), "minimum", "maximum", "preseasonTarget");
             EnsureRequiredProperties(root.GetProperty("morale"), "minimum", "maximum");
@@ -101,6 +104,7 @@ public sealed class ParamsConfig
                 "leagueWeight", "cupWeight", "friendlyWeight", "matchChangeMinimum", "matchChangeMaximum");
             EnsureRequiredProperties(root.GetProperty("expectedPoints"), "homeAdvantage", "reputationScale", "basePoints", "winPoints");
             EnsureRequiredProperties(root.GetProperty("positionalFamiliarity"), "minimum", "maximum", "primary", "secondaryHigh", "secondaryLow");
+            EnsureRequiredProperties(root.GetProperty("lineupSelection"), "ovrWeight", "familiarityWeight", "fitnessWeight", "moraleWeight", "recentLoadWeight");
             EnsureRequiredProperties(root.GetProperty("effectivePerformance"), "fitnessNeutral", "fitnessDeclinePerPoint",
                 "fitnessMinimumFactor", "moraleBaseFactor", "moraleRangeFactor", "softFactorMinimum", "softFactorMaximum",
                 "totalFactorMinimum", "totalFactorMaximum", "cohesionFactor", "relationsFactor", "tacticalFamiliarityFactor");
@@ -166,7 +170,11 @@ public sealed class ParamsConfig
                 dto.EffectivePerformance.SoftFactorMaximum, dto.EffectivePerformance.TotalFactorMinimum,
                 dto.EffectivePerformance.TotalFactorMaximum, dto.EffectivePerformance.CohesionFactor,
                 dto.EffectivePerformance.RelationsFactor, dto.EffectivePerformance.TacticalFamiliarityFactor),
-            matchSimulation);
+            matchSimulation, new LineupSelectionWeights(dto.LineupSelection!.OvrWeight, dto.LineupSelection.FamiliarityWeight,
+                dto.LineupSelection.FitnessWeight, dto.LineupSelection.MoraleWeight, dto.LineupSelection.RecentLoadWeight,
+                dto.EffectivePerformance!.FitnessNeutral, dto.EffectivePerformance.FitnessDeclinePerPoint,
+                dto.EffectivePerformance.FitnessMinimumFactor, dto.EffectivePerformance.MoraleBaseFactor,
+                dto.EffectivePerformance.MoraleRangeFactor));
     }
 
     private static MatchSimulationParams ParseMatchSimulation(JsonElement element)
@@ -525,6 +533,7 @@ public sealed class ParamsConfig
         public JsonElement WorldGeneration { get; set; }
         public ExpectedPointsDto? ExpectedPoints { get; set; }
         public PositionalFamiliarityDto? PositionalFamiliarity { get; set; }
+        public LineupSelectionDto? LineupSelection { get; set; }
         public EffectivePerformanceDto? EffectivePerformance { get; set; }
         public JsonElement MatchSimulation { get; set; }
     }
@@ -557,6 +566,14 @@ public sealed class ParamsConfig
         public int Primary { get; set; }
         public int SecondaryHigh { get; set; }
         public int SecondaryLow { get; set; }
+    }
+    private sealed class LineupSelectionDto
+    {
+        public double OvrWeight { get; set; }
+        public double FamiliarityWeight { get; set; }
+        public double FitnessWeight { get; set; }
+        public double MoraleWeight { get; set; }
+        public double RecentLoadWeight { get; set; }
     }
     private sealed class EffectivePerformanceDto
     {

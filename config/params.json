@@ -67,6 +67,13 @@
     "secondaryHigh": 92,
     "secondaryLow": 85
   },
+  "lineupSelection": {
+    "ovrWeight": 1.0,
+    "familiarityWeight": 0.05,
+    "fitnessWeight": 1.0,
+    "moraleWeight": 1.0,
+    "recentLoadWeight": -0.03
+  },
   "effectivePerformance": {
     "fitnessNeutral": 80,
     "fitnessDeclinePerPoint": 0.006,

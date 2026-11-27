@@ -4,7 +4,7 @@
   "title": "Boardroom & Touchline balance parameters",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "effectivePerformance", "matchSimulation", "attributeGeneration", "squadGeneration", "worldGeneration"],
+  "required": ["version", "fitness", "morale", "ageRecoveryFactors", "boardConfidence", "expectedPoints", "positionalFamiliarity", "lineupSelection", "effectivePerformance", "matchSimulation", "attributeGeneration", "squadGeneration", "worldGeneration"],
   "properties": {
     "version": { "type": "string", "minLength": 1 },
     "worldGeneration": { "type": "object", "additionalProperties": false,
@@ -120,6 +120,17 @@
         "primary": { "type": "integer", "minimum": 0, "maximum": 100 },
         "secondaryHigh": { "type": "integer", "minimum": 0, "maximum": 100 },
         "secondaryLow": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "lineupSelection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ovrWeight", "familiarityWeight", "fitnessWeight", "moraleWeight", "recentLoadWeight"],
+      "properties": {
+        "ovrWeight": { "type": "number", "minimum": 0 },
+        "familiarityWeight": { "type": "number", "minimum": 0 },
+        "fitnessWeight": { "type": "number", "minimum": 0 },
+        "moraleWeight": { "type": "number", "minimum": 0 },
+        "recentLoadWeight": { "type": "number", "maximum": 0 }
       }
     },
     "effectivePerformance": {
