@@ -86,6 +86,8 @@ public sealed class SqliteMatchdayStoreTests
             Assert.Equal(reports.Sum(report=>(long)report.Injuries.Count),Convert.ToInt64(Scalar(save.Connection,"SELECT count(*) FROM player_match_injuries;")));
             Assert.Equal(reports.SelectMany(report=>report.Injuries).Select(injury=>injury.PlayerId).Distinct(StringComparer.Ordinal).Count(),Convert.ToInt32(Scalar(save.Connection,"SELECT count(*) FROM player_availability;")));
             Assert.Equal(reports.SelectMany(report=>report.Cards).Select(card=>card.PlayerId).Distinct(StringComparer.Ordinal).Count(),Convert.ToInt32(Scalar(save.Connection,"SELECT count(*) FROM player_discipline;")));
+            Assert.Equal(0L, Scalar(save.Connection, "SELECT count(*) FROM player_discipline WHERE discipline_id='' OR source_competition_id='' OR rules_package_id='';"));
+            Assert.Equal(0L, Scalar(save.Connection, "SELECT count(*) FROM player_discipline WHERE rules_package_id<>'slice-league' OR rule_version<>'1.0.0';"));
             Assert.True(Convert.ToInt32(Scalar(save.Connection,"SELECT min(fit) FROM players;"))<100);
         });
     }

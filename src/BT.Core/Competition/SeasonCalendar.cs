@@ -70,7 +70,7 @@ public static class SeasonCalendar
 
 public sealed class ScheduledMatch
 {
-    public ScheduledMatch(string matchId, DateTime date, string homeClubId, string awayClubId, MatchCompetition competition)
+    public ScheduledMatch(string matchId, DateTime date, string homeClubId, string awayClubId, MatchCompetition competition, ScheduledMatchStatus status = ScheduledMatchStatus.Scheduled, string? competitionId = null)
     {
         MatchId = string.IsNullOrWhiteSpace(matchId) ? throw new ArgumentException("A match id is required.", nameof(matchId)) : matchId;
         if (date.Kind != DateTimeKind.Unspecified && date.TimeOfDay != TimeSpan.Zero)
@@ -80,7 +80,7 @@ public sealed class ScheduledMatch
         AwayClubId = string.IsNullOrWhiteSpace(awayClubId) ? throw new ArgumentException("An away club id is required.", nameof(awayClubId)) : awayClubId;
         if (string.Equals(HomeClubId, AwayClubId, StringComparison.Ordinal)) throw new ArgumentException("A club cannot play itself.");
         if (!Enum.IsDefined(typeof(MatchCompetition), competition)) throw new ArgumentOutOfRangeException(nameof(competition));
-        Competition = competition;
+        Competition = competition; Status = status; CompetitionId = string.IsNullOrWhiteSpace(competitionId) ? competition.ToString() : competitionId;
     }
 
     public string MatchId { get; }
@@ -88,7 +88,11 @@ public sealed class ScheduledMatch
     public string HomeClubId { get; }
     public string AwayClubId { get; }
     public MatchCompetition Competition { get; }
+    public ScheduledMatchStatus Status { get; }
+    public string CompetitionId { get; }
 }
+
+public enum ScheduledMatchStatus { Scheduled, Postponed, Played, Cancelled }
 
 public enum MatchCompetition
 {

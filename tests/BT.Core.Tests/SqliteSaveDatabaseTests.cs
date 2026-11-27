@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using BT.Core.Domain;
 using BT.Core.Sim;
 using BT.Data;
@@ -12,6 +14,59 @@ namespace BT.Core.Tests;
 
 public sealed class SqliteSaveDatabaseTests
 {
+    [Theory]
+    [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)]
+    public void ConsecutiveMigrationsPreserveWorldDataFromEverySupportedVersion(int startingVersion)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "bt-migration-" + Guid.NewGuid().ToString("N") + ".sqlite");
+        try
+        {
+            using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, ForeignKeys = true, Pooling = false }.ToString()))
+            {
+                connection.Open();
+                Execute(connection, ReadResource(typeof(SqliteSaveDatabaseTests).Assembly, "schema_v1.sql"));
+                Execute(connection, "INSERT INTO meta(key,value) VALUES('schema_version','1'); INSERT INTO clubs(club_id,name,nationality) VALUES('keep-club','Keep Club','Lumenia'); INSERT INTO players(player_id,club_id,full_name,age,nationality,position,ovr) VALUES('keep-player','keep-club','Keep Player',20,'Lumenia','CM',60);");
+                for (var next = 2; next <= startingVersion; next++)
+                {
+                    var script = ReadResource(typeof(SqliteSaveDatabase).Assembly, $"{next:000}_" + (next switch { 2 => "matchday_closure.sql", 3 => "match_input_snapshots.sql", 4 => "knockout_match_inputs.sql", 5 => "match_event_records.sql", _ => "versioned_discipline.sql" }));
+                    using var transaction = connection.BeginTransaction();
+                    Execute(connection, script, transaction);
+                    using var update = connection.CreateCommand(); update.Transaction = transaction; update.CommandText = "UPDATE meta SET value=$v WHERE key='schema_version';"; update.Parameters.AddWithValue("$v", next.ToString()); update.ExecuteNonQuery();
+                    transaction.Commit();
+                }
+                if (startingVersion >= 2) Execute(connection, "INSERT INTO player_discipline(player_id,accumulation_group,yellow_count,service_competition_id,pending_matches,cause,origin_fixture_id,rule_version) VALUES('keep-player','league-yellow',3,'legacy-league',1,'directRed',NULL,'r1');");
+            }
+            using (var save = SqliteSaveDatabase.Open(path))
+            using (var check = save.Connection.CreateCommand())
+            {
+                check.CommandText = "SELECT value FROM meta WHERE key='schema_version';"; Assert.Equal("6", check.ExecuteScalar());
+                check.CommandText = "SELECT name FROM clubs WHERE club_id='keep-club';"; Assert.Equal("Keep Club", check.ExecuteScalar());
+                check.CommandText = "SELECT count(*) FROM players WHERE player_id='keep-player';"; Assert.Equal(1L, check.ExecuteScalar());
+                if (startingVersion >= 2)
+                {
+                    check.CommandText = "SELECT yellow_count || ':' || pending_matches || ':' || discipline_id || ':' || rules_package_id FROM player_discipline WHERE player_id='keep-player';";
+                    Assert.Equal("3:1:keep-player:league-yellow:legacy-league:r1", check.ExecuteScalar());
+                }
+                check.CommandText = "PRAGMA foreign_key_check;"; using (var rows = check.ExecuteReader()) Assert.False(rows.Read());
+                check.CommandText = "PRAGMA integrity_check;"; Assert.Equal("ok", check.ExecuteScalar());
+            }
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path + "-wal")) File.Delete(path + "-wal");
+            if (File.Exists(path + "-shm")) File.Delete(path + "-shm");
+        }
+    }
+
+    private static string ReadResource(Assembly assembly, string suffix)
+    {
+        var name = assembly.GetManifestResourceNames().Single(x => x.EndsWith(suffix, StringComparison.Ordinal));
+        using var stream = assembly.GetManifestResourceStream(name)!; using var reader = new System.IO.StreamReader(stream, Encoding.UTF8); return reader.ReadToEnd();
+    }
+    private static void Execute(SqliteConnection connection, string sql, SqliteTransaction? transaction = null)
+    { using var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql; command.ExecuteNonQuery(); }
+
     [Fact]
     public void OpenCreatesMigratedSaveWithForeignKeysAndIntegrityChecksEnabled()
     {
@@ -21,7 +76,7 @@ public sealed class SqliteSaveDatabaseTests
             using var save = SqliteSaveDatabase.Open(path);
             using var command = save.Connection.CreateCommand();
             command.CommandText = "SELECT value FROM meta WHERE key='schema_version';";
-            Assert.Equal("5", command.ExecuteScalar());
+            Assert.Equal("6", command.ExecuteScalar());
             command.CommandText = "SELECT is_knockout FROM fixture_match_context WHERE 0;";
             command.CommandText = "PRAGMA foreign_keys;";
             Assert.Equal(1L, command.ExecuteScalar());

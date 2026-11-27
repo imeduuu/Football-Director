@@ -116,25 +116,36 @@ public sealed class SqliteMatchdayStore : IMatchdayStore
             var yellow=discipline.GetProperty("yellowAccumulation"); var threshold=yellow.GetProperty("threshold").GetInt32(); var suspension=yellow.GetProperty("suspensionMatches").GetInt32();
             var red=discipline.GetProperty("directRed"); var redBan=red.GetProperty("minimumMatches").GetInt32()+red.GetProperty("additionalMatches").GetInt32();
             var version=root.GetProperty("version").GetString() ?? throw new InvalidOperationException("Competition rules snapshot has no version.");
-            var group=discipline.GetProperty("yellowScope").GetString()=="perCompetition"?comp:"league";
-            var appeared=r.Home.Ratings.Select(x=>x.PlayerId).Concat(r.Away.Ratings.Select(x=>x.PlayerId)).Distinct(StringComparer.Ordinal).ToArray();
-            foreach(var player in appeared) MutateDiscipline(player,group,comp,fixture,version,0,0,"service",true);
+            var groupBase=discipline.TryGetProperty("accumulationGroupId",out var configuredGroup)?configuredGroup.GetString():"league";
+            if(string.IsNullOrWhiteSpace(groupBase)) throw new InvalidOperationException("Discipline accumulation group id is required.");
+            var group=groupBase;
+            var transferId=discipline.TryGetProperty("leagueTransferCompetitionId",out var configuredTransfer)?configuredTransfer.GetString():"league";
+            if(string.IsNullOrWhiteSpace(transferId)) throw new InvalidOperationException("Discipline transfer competition id is required.");
+            var packageId=root.TryGetProperty("id",out var package)?package.GetString():comp;
+            if(string.IsNullOrWhiteSpace(packageId)) throw new InvalidOperationException("Competition rule package id is required.");
+            var club1=m.Fixture.HomeClubId; var club2=m.Fixture.AwayClubId;
+            using(var eligible=Cmd("SELECT d.player_id,d.accumulation_group,d.service_competition_id FROM player_discipline d JOIN players p ON p.player_id=d.player_id WHERE d.pending_matches>0 AND d.service_competition_id=$competition AND p.club_id IN ($home,$away) ORDER BY d.player_id,d.accumulation_group;"))
+            { P(eligible,"$competition",comp);P(eligible,"$home",club1);P(eligible,"$away",club2);using var rows=eligible.ExecuteReader();var due=new List<(string Player,string Group,string Service)>();while(rows.Read())due.Add((rows.GetString(0),rows.GetString(1),rows.GetString(2)));rows.Close();foreach(var dueBan in due) MutateDiscipline(dueBan.Player,dueBan.Group,dueBan.Service,fixture,version,0,0,"service",true); }
             foreach(var e in r.Cards)
             {
                 var isYellow=e.Type==MatchEventType.YellowCard; int count=0,ban=0; string cause;
-                if(isYellow){count=ReadYellow(e.PlayerId!,group,comp)+1; if(count>=threshold){count=0;ban=suspension;} cause="yellow";}
-                else {ban=redBan;cause="directRed";}
-                MutateDiscipline(e.PlayerId!,group,comp,fixture,version,count,ban,cause,false);
+                var serviceComp=comp;
+                if(isYellow){count=ReadYellow(e.PlayerId!,group,comp)+1; if(count>=threshold){count=0;ban=suspension;} cause="yellowAccumulation";}
+                else {ban=redBan;cause="directRed"; if(discipline.GetProperty("redService").GetString()=="issuingCompetitionThenLeagueIfNoFixturesRemain" && !HasFutureFixture(comp,fixture,m.Fixture.HomeClubId,m.Fixture.AwayClubId)) serviceComp=transferId!;}
+                MutateDiscipline(e.PlayerId!,group,serviceComp,fixture,version,count,ban,cause,false,comp,packageId!);
             }
         }
+        private bool HasFutureFixture(string competition,string currentFixture,string home,string away)
+        { using var q=Cmd("SELECT 1 FROM fixtures f JOIN fixture_match_context c ON c.fixture_id=f.fixture_id WHERE c.competition_id=$competition AND f.season_id=(SELECT season_id FROM fixtures WHERE fixture_id=$current) AND f.fixture_id<>$current AND f.status IN ('scheduled','postponed') AND (f.home_club_id IN ($home,$away) OR f.away_club_id IN ($home,$away)) LIMIT 1;");P(q,"$competition",competition);P(q,"$current",currentFixture);P(q,"$home",home);P(q,"$away",away);return q.ExecuteScalar()!=null; }
         private int ReadYellow(string player,string group,string comp)
         { using var q=Cmd("SELECT yellow_count FROM player_discipline WHERE player_id=$p AND accumulation_group=$g AND service_competition_id=$s;"); P(q,"$p",player);P(q,"$g",group);P(q,"$s",comp); var value=q.ExecuteScalar(); return value==null?0:Convert.ToInt32(value,CultureInfo.InvariantCulture); }
-        private void MutateDiscipline(string player,string group,string comp,string fixture,string version,int yellow,int addBan,string cause,bool serving)
+        private void MutateDiscipline(string player,string group,string comp,string fixture,string version,int yellow,int addBan,string cause,bool serving,string? sourceComp=null,string? packageId=null)
         {
             if(serving)
             { using var served=Cmd("UPDATE player_discipline SET pending_matches=max(0,pending_matches-1),rule_version=$version WHERE player_id=$p AND accumulation_group=$g AND service_competition_id=$service;");P(served,"$version",version);P(served,"$p",player);P(served,"$g",group);P(served,"$service",comp);served.ExecuteNonQuery();return; }
-            using var q=Cmd("INSERT INTO player_discipline(player_id,accumulation_group,yellow_count,service_competition_id,pending_matches,cause,origin_fixture_id,rule_version) VALUES($p,$g,$yellow,$service,$ban,$cause,$fixture,$version) ON CONFLICT(player_id,accumulation_group,service_competition_id) DO UPDATE SET yellow_count=excluded.yellow_count,pending_matches=player_discipline.pending_matches+excluded.pending_matches,cause=CASE WHEN excluded.pending_matches>0 THEN excluded.cause ELSE player_discipline.cause END,origin_fixture_id=CASE WHEN excluded.pending_matches>0 THEN excluded.origin_fixture_id ELSE player_discipline.origin_fixture_id END,rule_version=excluded.rule_version;");
-            P(q,"$p",player);P(q,"$g",group);P(q,"$yellow",yellow);P(q,"$service",comp);P(q,"$ban",addBan);P(q,"$cause",cause);P(q,"$fixture",fixture);P(q,"$version",version);q.ExecuteNonQuery();
+            var id=player+":"+group+":"+comp;
+            using var q=Cmd("INSERT INTO player_discipline(player_id,accumulation_group,yellow_count,service_competition_id,pending_matches,cause,origin_fixture_id,rule_version,discipline_id,source_competition_id,rules_package_id) VALUES($p,$g,$yellow,$service,$ban,$cause,$fixture,$version,$id,$source,$package) ON CONFLICT(player_id,accumulation_group,service_competition_id) DO UPDATE SET yellow_count=excluded.yellow_count,pending_matches=player_discipline.pending_matches+excluded.pending_matches,cause=CASE WHEN excluded.pending_matches>0 THEN excluded.cause ELSE player_discipline.cause END,origin_fixture_id=CASE WHEN excluded.pending_matches>0 THEN excluded.origin_fixture_id ELSE player_discipline.origin_fixture_id END,rule_version=excluded.rule_version,discipline_id=excluded.discipline_id,source_competition_id=CASE WHEN excluded.pending_matches>0 THEN excluded.source_competition_id ELSE player_discipline.source_competition_id END,rules_package_id=excluded.rules_package_id;");
+            P(q,"$p",player);P(q,"$g",group);P(q,"$yellow",yellow);P(q,"$service",comp);P(q,"$ban",addBan);P(q,"$cause",cause);P(q,"$fixture",fixture);P(q,"$version",version);P(q,"$id",id);P(q,"$source",sourceComp??comp);P(q,"$package",packageId??comp);q.ExecuteNonQuery();
         }
         public IReadOnlyList<LeagueResult> GetCompletedLeagueResults(string competitionId,string seasonId)
         { using var q=Cmd("SELECT m.home_club_id,m.away_club_id,m.home_score,m.away_score FROM matches m JOIN fixtures f ON f.fixture_id=m.fixture_id JOIN fixture_match_context x ON x.fixture_id=f.fixture_id WHERE f.season_id=$season AND x.competition_id=$competition AND x.is_knockout=0 ORDER BY f.fixture_id;");P(q,"$season",seasonId);P(q,"$competition",competitionId);using var r=q.ExecuteReader();var list=new List<LeagueResult>();while(r.Read())list.Add(new LeagueResult(r.GetString(0),r.GetString(1),r.GetInt32(2),r.GetInt32(3)));return list; }
